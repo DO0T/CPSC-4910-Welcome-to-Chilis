@@ -33,8 +33,6 @@ async function verifyDatabaseConnection()
   }
 }
 
-verifyDatabaseConnection();
-
 async function createAuditLog(
   eventType,
   action,
@@ -91,7 +89,9 @@ app.get("/api/health", (req, res) =>
 });
 
 if (require.main === module) 
-  {
+{
+  verifyDatabaseConnection();
+
   app.listen(PORT, () => 
   {
     console.log(`Server running at http://localhost:${PORT}`);
