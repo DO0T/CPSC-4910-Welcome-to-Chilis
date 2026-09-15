@@ -35,6 +35,52 @@ async function verifyDatabaseConnection()
 
 verifyDatabaseConnection();
 
+async function createAuditLog(
+  eventType,
+  action,
+  userId = null,
+  driverId = null,
+  sponsorId = null,
+  status = null,
+  reason = null,
+  details = null
+)
+{
+  try
+  {
+    const query = `
+      INSERT INTO AuditLog
+      (
+        event_type,
+        user_id,
+        driver_id,
+        sponsor_id,
+        action,
+        status,
+        reason,
+        details
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    `;
+
+    await pool.query(query,
+    [
+      eventType,
+      userId,
+      driverId,
+      sponsorId,
+      action,
+      status,
+      reason,
+      details
+    ]);
+  }
+  catch (error)
+  {
+    console.error("Error creating audit log:", error);
+  }
+}
+
 app.get("/api/health", (req, res) => 
 {
   res.json(
@@ -88,6 +134,22 @@ app.get("/api/driver-points", async (req, res) =>
   catch (error) 
   {
     console.error("Error fetching driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/audit-logs", async (req, res) =>
+{
+  try
+  {
+    const query = "SELECT * FROM AuditLog ORDER BY event_date DESC;";
+    const [rows] = await pool.query(query);
+
+    res.json(rows);
+  }
+  catch (error)
+  {
+    console.error("Error fetching audit logs:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
