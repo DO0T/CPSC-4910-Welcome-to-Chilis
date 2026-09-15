@@ -41,42 +41,36 @@ async function createAuditLog(
   sponsorId = null,
   status = null,
   reason = null,
-  details = null
+  details = null,
+  db = pool
 )
 {
-  try
-  {
-    const query = `
-      INSERT INTO AuditLog
-      (
-        event_type,
-        user_id,
-        driver_id,
-        sponsor_id,
-        action,
-        status,
-        reason,
-        details
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-    `;
-
-    await pool.query(query,
-    [
-      eventType,
-      userId,
-      driverId,
-      sponsorId,
+  const query = `
+    INSERT INTO AuditLog
+    (
+      event_type,
+      user_id,
+      driver_id,
+      sponsor_id,
       action,
       status,
       reason,
       details
-    ]);
-  }
-  catch (error)
-  {
-    console.error("Error creating audit log:", error);
-  }
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+  `;
+
+  await db.query(query,
+  [
+    eventType,
+    userId,
+    driverId,
+    sponsorId,
+    action,
+    status,
+    reason,
+    details
+  ]);
 }
 
 app.get("/api/health", (req, res) => 
@@ -135,6 +129,83 @@ app.get("/api/driver-points", async (req, res) =>
   {
     console.error("Error fetching driver points:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/driver-points", async (req, res) =>
+{
+  const { driver_id, sponsor_id, point_change, reason } = req.body;
+
+  if (
+    driver_id == null ||
+    sponsor_id == null ||
+    point_change == null ||
+    !reason
+  )
+  {
+    return res.status(400).json(
+    {
+      error: "driver_id, sponsor_id, point_change, and reason are required"
+    });
+  }
+
+  let connection;
+
+  try
+  {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const query = `
+      INSERT INTO DriverPoints
+      (driver_id, sponsor_id, point_change, reason)
+      VALUES (?, ?, ?, ?);
+    `;
+
+    const [result] = await connection.query(query,
+    [
+      driver_id,
+      sponsor_id,
+      point_change,
+      reason
+    ]);
+
+    await createAuditLog(
+      "POINT_CHANGE",
+      `Driver points changed by ${point_change}`,
+      null,
+      driver_id,
+      sponsor_id,
+      "SUCCESS",
+      reason,
+      `DriverPoints transaction ID: ${result.insertId}`,
+      connection
+    );
+
+    await connection.commit();
+
+    res.status(201).json(
+    {
+      message: "Driver points updated successfully",
+      transaction_id: result.insertId
+    });
+  }
+  catch (error)
+  {
+    if (connection)
+    {
+      await connection.rollback();
+    }
+
+    console.error("Error updating driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+  finally
+  {
+    if (connection)
+    {
+      connection.release();
+    }
   }
 });
 
