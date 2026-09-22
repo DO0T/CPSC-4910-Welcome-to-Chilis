@@ -6,10 +6,10 @@ import Home from './Home.jsx'
 function App() {
   return (
     <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
     </Routes>
   );
 }
 
-export default Home;
+export default App;
