@@ -109,3 +109,10 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.home-nav {
+  display: flex;
+  gap: 16px;           /* space between links */
+  margin-top: 24px;    /* space above the links */
+  justify-content: center; /* centers the links horizontally */
+}
