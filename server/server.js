@@ -73,6 +73,37 @@ async function createAuditLog(
   ]);
 }
 
+async function logApplicationChange(
+  driverId,
+  sponsorId,
+  status,
+  reason,
+  db = pool
+)
+{
+  if (status !== "ACCEPTED" && status !== "REJECTED")
+  {
+    throw new Error("Application status must be ACCEPTED or REJECTED");
+  }
+
+  if (!reason)
+  {
+    throw new Error("A reason is required for an application decision");
+  }
+
+  await createAuditLog(
+    "APPLICATION",
+    `Driver application ${status.toLowerCase()}`,
+    null,
+    driverId,
+    sponsorId,
+    status,
+    reason,
+    null,
+    db
+  );
+}
+
 app.get("/api/health", (req, res) => 
 {
   res.json(
