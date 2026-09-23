@@ -15,7 +15,7 @@ function Home() {
 
   return (
     <main>
-      <h1>Welcome to Chili's</h1>
+      <h1>Welcome to Chili's. website is live brah</h1>
       <p>{message}</p>
     </main>
   );
