@@ -5,9 +5,11 @@ DROP TABLE IF EXISTS AuditLog;
 
 CREATE TABLE Users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL, 
-    role ENUM('Driver', 'Sponsor', 'Admin') NOT NULL 
+    role ENUM('Driver', 'Sponsor', 'Admin') NOT NULL,
+    profile_picture_url VARCHAR(2048) NULL
 );
 
 CREATE TABLE Sponsors (
