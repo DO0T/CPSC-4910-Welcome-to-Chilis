@@ -45,6 +45,75 @@ app.get("/api/health", (req, res) =>
   });
 });
 
+// Create a regular user account. The email address is stored as the username,
+// matching the existing login route, and passwords are stored only as bcrypt hashes.
+app.post("/api/signup", async (req, res) =>
+{
+  try
+  {
+    const { name, email, password, profilePictureUrl } = req.body || {};
+    const cleanName = typeof name === "string" ? name.trim() : "";
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const cleanProfilePictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
+
+    if (!cleanName || !cleanEmail || typeof password !== "string" || !password)
+    {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    // Basic server-side email format check; the browser's type=email is not enough.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
+    {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    if (cleanProfilePictureUrl)
+    {
+      try
+      {
+        const pictureUrl = new URL(cleanProfilePictureUrl);
+        if (!["http:", "https:"].includes(pictureUrl.protocol)) throw new Error("Invalid protocol");
+      }
+      catch
+      {
+        return res.status(400).json({ message: "Profile picture must be a valid HTTP or HTTPS URL" });
+      }
+    }
+
+    const [existingUsers] = await pool.query(
+      "SELECT user_id FROM Users WHERE username = ? LIMIT 1;",
+      [cleanEmail]
+    );
+    if (existingUsers.length > 0)
+    {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const [result] = await pool.query(
+      "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
+      [cleanName, cleanEmail, passwordHash, "Driver", cleanProfilePictureUrl || null]
+    );
+
+    return res.status(201).json({
+      message: "Account created successfully",
+      id: result.insertId,
+      name: cleanName,
+      profilePictureUrl: cleanProfilePictureUrl || null
+    });
+  }
+  catch (error)
+  {
+    // Also handle duplicate usernames if two signup requests race.
+    if (error.code === "ER_DUP_ENTRY")
+    {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+    console.error("Signup error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 if (require.main === module) 
   {
   app.listen(PORT, () => 
@@ -129,7 +198,9 @@ app.post("/api/login", async (req, res) =>
     ({ 
       message: "Login successful",
       role: userRecord.role,
-      id: userRecord.user_id
+      id: userRecord.user_id,
+      name: userRecord.name,
+      profilePictureUrl: userRecord.profile_picture_url
     });
   }
   else 
