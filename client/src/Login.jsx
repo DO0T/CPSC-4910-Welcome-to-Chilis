@@ -1,19 +1,46 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = (event) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    // Connect this form to the authentication service when it is available.
+    
+    try {
+      const response = await fetch("http://localhost:5000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username: email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.role === "Admin") navigate("/admin-dashboard");
+        else if (data.role === "Sponsor") navigate("/sponsor-dashboard");
+        else if (data.role === "Driver") navigate("/driver-dashboard");
+      } else {
+        alert(data.message); 
+      }
+    } catch (error) {
+      console.error("Login request failed:", error);
+      alert("An error occurred while attempting to log in.");
+    }
   };
 
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
         <h1 id="login-title">Welcome back</h1>
-        <p>Sign in to your Chili&apos;s account.</p>
+        <p>Sign in to your account.</p>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
@@ -29,16 +56,25 @@ function Login() {
           />
 
           <label htmlFor="password">Password</label>
+          {/* The type attribute dynamically evaluates to text or password to allow the driver to hide their password */}
           <input
             id="password"
             name="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Enter your password"
             autoComplete="current-password"
             required
           />
+          
+          {/* Button toggles the showPassword boolean state */}
+          <button 
+            type="button" 
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? "Hide" : "Show"} Password
+          </button>
 
           <button type="submit">Log in</button>
         </form>
