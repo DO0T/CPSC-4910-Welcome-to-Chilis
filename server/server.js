@@ -6,6 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const mysql = require("mysql2/promise");
+const bcrypt = require("bcrypt");
 
 app.use(cors());
 app.use(express.json());
@@ -237,6 +238,93 @@ app.post("/api/driver-points", async (req, res) =>
     {
       connection.release();
     }
+  }
+});
+
+app.post("/api/login", async (req, res) =>
+{
+  try
+  {
+    const { username, password } = req.body;
+
+    if (!username || !password)
+    {
+      return res.status(400).json(
+      {
+        message: "Username and password are required"
+      });
+    }
+
+    const query = "SELECT * FROM Users WHERE username = ?;";
+    const [rows] = await pool.query(query, [username]);
+
+    if (rows.length === 0)
+    {
+      await createAuditLog(
+        "LOGIN_ATTEMPT",
+        "Login attempt failed",
+        null,
+        null,
+        null,
+        "FAILURE",
+        "Invalid username or password",
+        `Username: ${username}`
+      );
+
+      return res.status(401).json(
+      {
+        message: "Invalid username or password"
+      });
+    }
+
+    const userRecord = rows[0];
+
+    const match = await bcrypt.compare(
+      password,
+      userRecord.password_hash
+    );
+
+    if (!match)
+    {
+      await createAuditLog(
+        "LOGIN_ATTEMPT",
+        "Login attempt failed",
+        userRecord.user_id,
+        null,
+        null,
+        "FAILURE",
+        "Invalid username or password",
+        `Username: ${username}`
+      );
+
+      return res.status(401).json(
+      {
+        message: "Invalid username or password"
+      });
+    }
+
+    await createAuditLog(
+      "LOGIN_ATTEMPT",
+      "User logged in successfully",
+      userRecord.user_id,
+      null,
+      null,
+      "SUCCESS",
+      null,
+      `Username: ${username}`
+    );
+
+    return res.status(200).json(
+    {
+      message: "Login successful",
+      role: userRecord.role,
+      id: userRecord.user_id
+    });
+  }
+  catch (error)
+  {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

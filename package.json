@@ -1,5 +1,10 @@
 {
   "dependencies": {
-    "mysql2": "^3.24.4"
+    "bcrypt": "^6.0.0",
+    "mysql2": "^3.24.4",
+    "react-router-dom": "^7.18.4"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true
   }
 }
