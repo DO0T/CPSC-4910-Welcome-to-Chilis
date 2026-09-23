@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "npm --prefix ../server test -- --runInBand && npm run lint",
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
