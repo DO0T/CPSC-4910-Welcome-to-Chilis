@@ -2,6 +2,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!client/.env.production
 
 dist/
 coverage/
