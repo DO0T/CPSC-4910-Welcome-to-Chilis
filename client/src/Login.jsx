@@ -24,6 +24,7 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
+        sessionStorage.setItem('authToken', data.token);
         if (data.role === "Admin") navigate("/admin-dashboard");
         else if (data.role === "Sponsor") navigate("/sponsor-dashboard");
         else if (data.role === "Driver") navigate("/driver-dashboard");
