@@ -1,22 +1,18 @@
-import { useEffect, useState } from "react";
+import { Routes, Route } from "react-router-dom";
+import Login from './Login.jsx'
+import Home from './Home.jsx'
+import SignUp from './signup.jsx'
+import EditProfile from './editprofile.jsx'
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function App() {
-  const [message, setMessage] = useState("Connecting to server...");
-
-  useEffect(() => {
-    fetch(`${API_URL}/api/health`)
-      .then((response) => response.json())
-      .then((data) => setMessage(data.message))
-      .catch(() => setMessage("Could not connect to the server"));
-  }, []);
-
   return (
-    <main>
-      <h1>Welcome to Chili's</h1>
-      <p>{message}</p>
-    </main>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<SignUp />} />
+      <Route path="/editprofile" element={<EditProfile />} />
+    </Routes>
   );
 }
 
