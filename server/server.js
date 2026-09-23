@@ -35,41 +35,29 @@ async function verifyDatabaseConnection()
 }
 
 async function createAuditLog(
-  eventType,
-  action,
-  userId = null,
-  driverId = null,
-  sponsorId = null,
-  status = null,
-  reason = null,
-  details = null,
+  username,
+  eventCategory,
+  status,
+  details,
   db = pool
 )
 {
   const query = `
     INSERT INTO AuditLog
     (
-      event_type,
-      user_id,
-      driver_id,
-      sponsor_id,
-      action,
+      username,
+      event_category,
       status,
-      reason,
       details
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?);
   `;
 
   await db.query(query,
   [
-    eventType,
-    userId,
-    driverId,
-    sponsorId,
-    action,
+    username,
+    eventCategory,
     status,
-    reason,
     details
   ]);
 }
@@ -93,14 +81,10 @@ async function logApplicationChange(
   }
 
   await createAuditLog(
-    "APPLICATION",
-    `Driver application ${status.toLowerCase()}`,
     null,
-    driverId,
-    sponsorId,
+    "Driver Application",
     status,
-    reason,
-    null,
+    `Driver ID: ${driverId}; Sponsor ID: ${sponsorId}; Reason: ${reason}`,
     db
   );
 }
@@ -203,14 +187,10 @@ app.post("/api/driver-points", async (req, res) =>
     ]);
 
     await createAuditLog(
-      "POINT_CHANGE",
-      `Driver points changed by ${point_change}`,
       null,
-      driver_id,
-      sponsor_id,
-      "SUCCESS",
-      reason,
-      `DriverPoints transaction ID: ${result.insertId}`,
+      "Point Change",
+      "Success",
+      `Driver ID: ${driver_id}; Sponsor ID: ${sponsor_id}; Points changed by ${point_change}; Reason: ${reason}; Transaction ID: ${result.insertId}`,
       connection
     );
 
@@ -261,14 +241,10 @@ app.post("/api/login", async (req, res) =>
     if (rows.length === 0)
     {
       await createAuditLog(
-        "LOGIN_ATTEMPT",
-        "Login attempt failed",
-        null,
-        null,
-        null,
-        "FAILURE",
-        "Invalid username or password",
-        `Username: ${username}`
+        username,
+        "Login Attempt",
+        "Failure",
+        "Invalid username or password"
       );
 
       return res.status(401).json(
@@ -287,14 +263,10 @@ app.post("/api/login", async (req, res) =>
     if (!match)
     {
       await createAuditLog(
-        "LOGIN_ATTEMPT",
-        "Login attempt failed",
-        userRecord.user_id,
-        null,
-        null,
-        "FAILURE",
-        "Invalid username or password",
-        `Username: ${username}`
+        username,
+        "Login Attempt",
+        "Failure",
+        "Invalid username or password"
       );
 
       return res.status(401).json(
@@ -304,14 +276,10 @@ app.post("/api/login", async (req, res) =>
     }
 
     await createAuditLog(
-      "LOGIN_ATTEMPT",
-      "User logged in successfully",
-      userRecord.user_id,
-      null,
-      null,
-      "SUCCESS",
-      null,
-      `Username: ${username}`
+      username,
+      "Login Attempt",
+      "Success",
+      "User logged in successfully"
     );
 
     return res.status(200).json(
