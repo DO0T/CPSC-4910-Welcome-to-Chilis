@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
+
 function SignUp() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,7 +23,7 @@ function SignUp() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/signup', {
+      const response = await fetch(`${API_BASE_URL}/api/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, profilePictureUrl }),

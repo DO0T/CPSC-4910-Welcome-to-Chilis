@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
+
 function EditProfile() {
   const [profile, setProfile] = useState({
     name: '',
@@ -25,7 +28,7 @@ function EditProfile() {
     }
 
     let active = true;
-    fetch('http://localhost:5000/api/profile', {
+    fetch(`${API_BASE_URL}/api/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {
@@ -80,7 +83,7 @@ function EditProfile() {
     setIsSaving(true);
     try {
       const token = sessionStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5000/api/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +124,7 @@ function EditProfile() {
     const token = sessionStorage.getItem('authToken');
     try {
       if (token) {
-        await fetch('http://localhost:5000/api/logout', {
+        await fetch(`${API_BASE_URL}/api/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
