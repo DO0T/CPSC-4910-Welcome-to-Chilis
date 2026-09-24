@@ -14,6 +14,7 @@ function EditProfile() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,10 +116,33 @@ function EditProfile() {
     }
   };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    const token = sessionStorage.getItem('authToken');
+    try {
+      if (token) {
+        await fetch('http://localhost:5000/api/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (requestError) {
+      console.error('Logout request failed:', requestError);
+    } finally {
+      sessionStorage.removeItem('authToken');
+      navigate('/login');
+    }
+  };
+
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="profile-title">
-        <h1 id="profile-title">Edit profile</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <h1 id="profile-title">Edit profile</h1>
+          <button type="button" onClick={handleLogout} disabled={isLoggingOut}>
+            {isLoggingOut ? 'Logging out…' : 'Log out'}
+          </button>
+        </div>
         <p>Review and update your Chili&apos;s account details.</p>
 
         {isLoading ? <p role="status">Loading your profile…</p> : (

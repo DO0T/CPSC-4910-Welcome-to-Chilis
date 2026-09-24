@@ -64,6 +64,7 @@ function requireLogin(req, res, next)
   }
 
   req.userId = session.userId;
+  req.authToken = token;
   next();
 }
 
@@ -174,6 +175,12 @@ app.get("/api/profile", requireLogin, async (req, res) =>
     console.error("Profile fetch error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
+});
+
+app.post("/api/logout", requireLogin, (req, res) =>
+{
+  sessions.delete(req.authToken);
+  return res.json({ message: "Logged out successfully" });
 });
 
 app.put("/api/profile", requireLogin, async (req, res) =>
