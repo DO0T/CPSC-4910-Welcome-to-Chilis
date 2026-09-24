@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LogoutButton from './logoutbutton.jsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
@@ -17,7 +18,6 @@ function EditProfile() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -119,32 +119,12 @@ function EditProfile() {
     }
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    const token = sessionStorage.getItem('authToken');
-    try {
-      if (token) {
-        await fetch(`${API_BASE_URL}/api/logout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-    } catch (requestError) {
-      console.error('Logout request failed:', requestError);
-    } finally {
-      sessionStorage.removeItem('authToken');
-      navigate('/login');
-    }
-  };
-
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="profile-title">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
           <h1 id="profile-title">Edit profile</h1>
-          <button type="button" onClick={handleLogout} disabled={isLoggingOut}>
-            {isLoggingOut ? 'Logging out…' : 'Log out'}
-          </button>
+          <LogoutButton />
         </div>
         <p>Review and update your Chili&apos;s account details.</p>
 
