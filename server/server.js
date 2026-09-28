@@ -272,18 +272,9 @@ app.get("/api/about", async (req, res) =>
 {
   try 
   {
-    const query = "SELECT * FROM AboutPage;"; 
+    const query = "SELECT * FROM AboutPage ORDER BY CAST(SUBSTRING_INDEX(version_number, ' ', -1) AS UNSIGNED) DESC, id DESC;"; 
     const [rows] = await pool.query(query);
-
-    if (rows.length > 0) 
-    {
-        res.json(rows[0]);
-
-    } 
-    else 
-    {
-        res.status(404).json({ message: "About information not found" });
-    }
+    res.json(rows);
   }
   catch (error) 
   {

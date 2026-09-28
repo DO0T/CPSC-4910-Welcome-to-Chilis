@@ -4,6 +4,7 @@ import Home from './Home.jsx';
 import SignUp from './signup.jsx';
 import EditProfile from './editprofile.jsx';
 import DriverDashboard from './driverdashboard.jsx';
+import About from './about.jsx';
 
 function App() {
   return (
@@ -12,7 +13,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/editprofile" element={<EditProfile />} />
-
+      <Route path="/about" element={<About />} />
       <Route path="/driver-dashboard" element={<DriverDashboard />} />
       <Route path="/sponsor-dashboard" element={<h1 style={{color: 'white'}}>Sponsor Dashboard</h1>} />
       <Route path="/admin-dashboard" element={<h1 style={{color: 'white'}}>Admin Dashboard</h1>} />
