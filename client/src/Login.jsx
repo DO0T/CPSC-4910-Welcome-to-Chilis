@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
+
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,7 +16,7 @@ function Login() {
     event.preventDefault();
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -24,6 +27,7 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
+        sessionStorage.setItem('authToken', data.token);
         if (data.role === "Admin") navigate("/admin-dashboard");
         else if (data.role === "Sponsor") navigate("/sponsor-dashboard");
         else if (data.role === "Driver") navigate("/driver-dashboard");
