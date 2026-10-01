@@ -299,6 +299,40 @@ app.get("/api/driver-points", async (req, res) =>
   }
 });
 
+app.get("/api/driver/points", requireLogin, async (req, res) => {
+  try {
+    const query = "SELECT total_points FROM Drivers WHERE user_id = ?;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+    res.json({ total_points: rows[0].total_points });
+    
+  } catch (error) {
+    console.error("Error fetching driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Recent point-change history for the logged-in driver (feeds the dashboard's
+// "recent activity" card). Reuses the existing DriverPoints ledger table —
+// no schema changes. Scoped to req.userId so a driver only ever sees their own rows.
+app.get("/api/driver/points-history", requireLogin, async (req, res) => {
+  try {
+    const query =
+      "SELECT id, point_change, reason, transaction_date FROM DriverPoints " +
+      "WHERE driver_id = ? ORDER BY transaction_date DESC LIMIT 20;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching driver points history:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 app.post("/api/login", async (req, res) => 
 {
   try 
