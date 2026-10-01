@@ -132,6 +132,14 @@ app.post("/api/signup", async (req, res) =>
       [cleanName, cleanEmail, passwordHash, "Driver", cleanProfilePictureUrl || null]
     );
 
+    // This signup route only ever creates Drivers (role is hardcoded above), so every
+    // successful signup also needs a matching Drivers row — otherwise routes like
+    // /api/driver/points have no total_points row to find for this account.
+    await pool.query(
+      "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
+      [result.insertId]
+    );
+
     return res.status(201).json({
       message: "Account created successfully",
       id: result.insertId,
