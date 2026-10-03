@@ -1,0 +1,136 @@
+.about-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: clamp(32px, 7vw, 88px) 20px;
+  color: #29485f;
+  background: #f2f7f5;
+  font-family: inherit;
+}
+
+.about-content {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
+.about-eyebrow {
+  margin: 0 0 10px;
+  color: #55768d;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.about-title {
+  margin: 0;
+  color: #29485f;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 1.08;
+}
+
+.about-intro {
+  margin: 18px 0 36px;
+  color: #55768d;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.about-card,
+.about-message {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.about-sprint-list {
+  display: grid;
+  gap: 24px;
+}
+
+.about-card-header {
+  padding: clamp(24px, 5vw, 40px);
+  background: #e8f1ed;
+}
+
+.about-sprint-label {
+  margin: 0 0 8px;
+  color: #55768d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.about-product {
+  margin: 0;
+  color: #29485f;
+  font-size: clamp(24px, 4vw, 36px);
+}
+
+.about-product-name {
+  margin: 8px 0 0;
+  color: #55768d;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.about-description {
+  max-width: 680px;
+  margin: 14px 0 0;
+  color: #55768d;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.about-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid #e8efec;
+}
+
+.about-detail {
+  min-width: 0;
+  padding: 24px clamp(18px, 3vw, 32px);
+}
+
+.about-detail + .about-detail {
+  border-left: 1px solid #e8efec;
+}
+
+.about-detail dt {
+  margin-bottom: 8px;
+  color: #718895;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.about-detail dd {
+  margin: 0;
+  color: #29485f;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.about-message {
+  padding: 32px;
+  color: #55768d;
+  line-height: 1.6;
+}
+
+.about-error {
+  color: #d22c2c;
+}
+
+@media (max-width: 600px) {
+  .about-details {
+    grid-template-columns: 1fr;
+  }
+
+  .about-detail + .about-detail {
+    border-top: 1px solid #e8efec;
+    border-left: 0;
+  }
+}

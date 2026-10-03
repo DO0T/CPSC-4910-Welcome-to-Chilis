@@ -132,6 +132,14 @@ app.post("/api/signup", async (req, res) =>
       [cleanName, cleanEmail, passwordHash, "Driver", cleanProfilePictureUrl || null]
     );
 
+    // This signup route only ever creates Drivers (role is hardcoded above), so every
+    // successful signup also needs a matching Drivers row — otherwise routes like
+    // /api/driver/points have no total_points row to find for this account.
+    await pool.query(
+      "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
+      [result.insertId]
+    );
+
     return res.status(201).json({
       message: "Account created successfully",
       id: result.insertId,
@@ -272,18 +280,9 @@ app.get("/api/about", async (req, res) =>
 {
   try 
   {
-    const query = "SELECT * FROM AboutPage;"; 
+    const query = "SELECT * FROM AboutPage ORDER BY CAST(SUBSTRING_INDEX(version_number, ' ', -1) AS UNSIGNED) DESC, id DESC;"; 
     const [rows] = await pool.query(query);
-
-    if (rows.length > 0) 
-    {
-        res.json(rows[0]);
-
-    } 
-    else 
-    {
-        res.status(404).json({ message: "About information not found" });
-    }
+    res.json(rows);
   }
   catch (error) 
   {
@@ -304,6 +303,40 @@ app.get("/api/driver-points", async (req, res) =>
   catch (error) 
   {
     console.error("Error fetching driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/driver/points", requireLogin, async (req, res) => {
+  try {
+    const query = "SELECT total_points FROM Drivers WHERE user_id = ?;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+    res.json({ total_points: rows[0].total_points });
+    
+  } catch (error) {
+    console.error("Error fetching driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Recent point-change history for the logged-in driver (feeds the dashboard's
+// "recent activity" card). Reuses the existing DriverPoints ledger table —
+// no schema changes. Scoped to req.userId so a driver only ever sees their own rows.
+app.get("/api/driver/points-history", requireLogin, async (req, res) => {
+  try {
+    const query =
+      "SELECT id, point_change, reason, transaction_date FROM DriverPoints " +
+      "WHERE driver_id = ? ORDER BY transaction_date DESC LIMIT 20;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching driver points history:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
