@@ -7,7 +7,7 @@ test('Sign-up and Sign-in', async ({ page }) => {
     await page.getByLabel('Email').pressSequentially('John@test.example');
     await page.getByLabel('Password', {exact : true}).pressSequentially('password');
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
-    await expect(page.getByRole('status', { name: 'Account created. You can now log in.' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Account created. You can now log in' })).toBeVisible();
     await page.getByRole('button',{name: 'Sign up'}).click()
     await page.getByRole('link', { name: 'Log in' }).click();
     await page.getByLabel('Email').pressSequentially('John@test.example');
@@ -36,7 +36,7 @@ test('Database Sign-up Fail', async({ page }) => {
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
     await page.getByRole('button',{name: 'Sign up'}).click();
     await expect(page.getByLabel('Email')).toBeFocused
-    await expect(page.getByRole('alert', { name: 'Unable to create your account.' })).toBeVisible();
+    await expect(page.getByRole('alert', { name: 'Unable to create your account' })).toBeVisible();
 });
 test('Duplicate Email', async ({ page }) => {
     await page.goto('http://52.23.134.146/');
@@ -46,7 +46,7 @@ test('Duplicate Email', async ({ page }) => {
     await page.getByLabel('Password', {exact : true}).pressSequentially('password');
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
     await page.getByRole('button',{name: 'Sign up'}).click()
-    await expect(page.getByRole('alert', { name: 'An account with this email already exists.' })).toBeVisible();
+    await expect(page.getByRole('alert', { name: 'An account with this email already exists' })).toBeVisible();
     });
 
 test('Find Profile Page', async ({ page }) => {
