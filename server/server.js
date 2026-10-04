@@ -35,8 +35,6 @@ async function verifyDatabaseConnection()
   }
 }
 
-verifyDatabaseConnection();
-
 app.get("/api/health", (req, res) => 
 {
   res.json(
@@ -82,16 +80,17 @@ function isValidPictureUrl(value)
   }
 }
 
-// Create a regular user account. The email address is stored as the username,
-// matching the existing login route, and passwords are stored only as bcrypt hashes.
+// Create a Driver or Sponsor account. Email is the username used at login.
 app.post("/api/signup", async (req, res) =>
 {
+  let connection;
   try
   {
-    const { name, email, password, profilePictureUrl } = req.body || {};
+    const { name, email, password, profilePictureUrl, role = "Driver", companyName } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanProfilePictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
+    const cleanCompanyName = typeof companyName === "string" ? companyName.trim() : "";
 
     if (!cleanName || !cleanEmail || typeof password !== "string" || !password)
     {
@@ -102,6 +101,16 @@ app.post("/api/signup", async (req, res) =>
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
     {
       return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    if (role !== "Driver" && role !== "Sponsor")
+    {
+      return res.status(400).json({ message: "Please choose Driver or Sponsor" });
+    }
+
+    if (role === "Sponsor" && !cleanCompanyName)
+    {
+      return res.status(400).json({ message: "Company name is required for sponsor accounts" });
     }
 
     if (cleanProfilePictureUrl)
@@ -117,38 +126,46 @@ app.post("/api/signup", async (req, res) =>
       }
     }
 
-    const [existingUsers] = await pool.query(
-      "SELECT user_id FROM Users WHERE username = ? LIMIT 1;",
-      [cleanEmail]
+    const passwordHash = await bcrypt.hash(password, 12);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
+      [cleanName, cleanEmail, passwordHash, role, cleanProfilePictureUrl || null]
     );
-    if (existingUsers.length > 0)
+
+    if (role === "Sponsor")
     {
-      return res.status(409).json({ message: "An account with this email already exists" });
+      const [sponsor] = await connection.query(
+        "INSERT INTO Sponsors (company_name) VALUES (?);",
+        [cleanCompanyName]
+      );
+      await connection.query(
+        "INSERT INTO SponsorUsers (user_id, sponsor_id) VALUES (?, ?);",
+        [result.insertId, sponsor.insertId]
+      );
+    }
+    else
+    {
+      await connection.query(
+        "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
+        [result.insertId]
+      );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    const [result] = await pool.query(
-      "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
-      [cleanName, cleanEmail, passwordHash, "Driver", cleanProfilePictureUrl || null]
-    );
-
-    // This signup route only ever creates Drivers (role is hardcoded above), so every
-    // successful signup also needs a matching Drivers row — otherwise routes like
-    // /api/driver/points have no total_points row to find for this account.
-    await pool.query(
-      "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
-      [result.insertId]
-    );
+    await connection.commit();
 
     return res.status(201).json({
       message: "Account created successfully",
       id: result.insertId,
       name: cleanName,
+      role,
       profilePictureUrl: cleanProfilePictureUrl || null
     });
   }
   catch (error)
   {
+    if (connection) await connection.rollback();
     // Also handle duplicate usernames if two signup requests race.
     if (error.code === "ER_DUP_ENTRY")
     {
@@ -156,6 +173,10 @@ app.post("/api/signup", async (req, res) =>
     }
     console.error("Signup error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
+  }
+  finally
+  {
+    if (connection) connection.release();
   }
 });
 
@@ -270,6 +291,7 @@ app.put("/api/profile", requireLogin, async (req, res) =>
 
 if (require.main === module) 
   {
+  verifyDatabaseConnection();
   app.listen(PORT, () => 
   {
     console.log(`Server running at http://localhost:${PORT}`);
