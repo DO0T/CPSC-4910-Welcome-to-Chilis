@@ -1,0 +1,104 @@
+.sponsor-dashboard .dashboard-card-header {
+  text-align: left;
+}
+
+.sponsor-section-title {
+  margin: 0;
+  color: #29485f;
+  font-size: clamp(24px, 4vw, 32px);
+  line-height: 1.2;
+}
+
+.sponsor-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  text-align: left;
+}
+
+.sponsor-stat {
+  min-width: 0;
+  padding: 28px clamp(18px, 3vw, 32px);
+}
+
+.sponsor-stat + .sponsor-stat {
+  border-left: 1px solid #e8efec;
+}
+
+.sponsor-stat dt {
+  color: #55768d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sponsor-stat dd {
+  margin: 10px 0 0;
+  color: #29485f;
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sponsor-stat dd.sponsor-stat-unavailable {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.sponsor-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.sponsor-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px clamp(18px, 3vw, 32px);
+  border-top: 1px solid #e8efec;
+}
+
+.sponsor-list-title,
+.sponsor-list-detail {
+  display: block;
+}
+
+.sponsor-list-title {
+  color: #29485f;
+  font-weight: 600;
+}
+
+.sponsor-list-detail {
+  margin-top: 4px;
+  color: #55768d;
+  font-size: 14px;
+}
+
+.sponsor-points {
+  flex: 0 0 auto;
+  color: #29485f;
+  font-weight: 700;
+}
+
+.sponsor-points-negative {
+  color: #a34444;
+}
+
+@media (max-width: 600px) {
+  .sponsor-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .sponsor-stat + .sponsor-stat {
+    border-top: 1px solid #e8efec;
+    border-left: 0;
+  }
+
+  .sponsor-list-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

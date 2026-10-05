@@ -135,16 +135,17 @@ function isValidPictureUrl(value)
   }
 }
 
-// Create a regular user account. The email address is stored as the username,
-// matching the existing login route, and passwords are stored only as bcrypt hashes.
+// Create a Driver or Sponsor account. Email is the username used at login.
 app.post("/api/signup", async (req, res) =>
 {
+  let connection;
   try
   {
-    const { name, email, password, profilePictureUrl } = req.body || {};
+    const { name, email, password, profilePictureUrl, role = "Driver", companyName } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanProfilePictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
+    const cleanCompanyName = typeof companyName === "string" ? companyName.trim() : "";
 
     if (!cleanName || !cleanEmail || typeof password !== "string" || !password)
     {
@@ -155,6 +156,16 @@ app.post("/api/signup", async (req, res) =>
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
     {
       return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    if (role !== "Driver" && role !== "Sponsor")
+    {
+      return res.status(400).json({ message: "Please choose Driver or Sponsor" });
+    }
+
+    if (role === "Sponsor" && !cleanCompanyName)
+    {
+      return res.status(400).json({ message: "Company name is required for sponsor accounts" });
     }
 
     if (cleanProfilePictureUrl)
@@ -170,30 +181,46 @@ app.post("/api/signup", async (req, res) =>
       }
     }
 
-    const [existingUsers] = await pool.query(
-      "SELECT user_id FROM Users WHERE username = ? LIMIT 1;",
-      [cleanEmail]
+    const passwordHash = await bcrypt.hash(password, 12);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
+      [cleanName, cleanEmail, passwordHash, role, cleanProfilePictureUrl || null]
     );
-    if (existingUsers.length > 0)
+
+    if (role === "Sponsor")
     {
-      return res.status(409).json({ message: "An account with this email already exists" });
+      const [sponsor] = await connection.query(
+        "INSERT INTO Sponsors (company_name) VALUES (?);",
+        [cleanCompanyName]
+      );
+      await connection.query(
+        "INSERT INTO SponsorUsers (user_id, sponsor_id) VALUES (?, ?);",
+        [result.insertId, sponsor.insertId]
+      );
+    }
+    else
+    {
+      await connection.query(
+        "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
+        [result.insertId]
+      );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    const [result] = await pool.query(
-      "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
-      [cleanName, cleanEmail, passwordHash, "Driver", cleanProfilePictureUrl || null]
-    );
+    await connection.commit();
 
     return res.status(201).json({
       message: "Account created successfully",
       id: result.insertId,
       name: cleanName,
+      role,
       profilePictureUrl: cleanProfilePictureUrl || null
     });
   }
   catch (error)
   {
+    if (connection) await connection.rollback();
     // Also handle duplicate usernames if two signup requests race.
     if (error.code === "ER_DUP_ENTRY")
     {
@@ -201,6 +228,10 @@ app.post("/api/signup", async (req, res) =>
     }
     console.error("Signup error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
+  }
+  finally
+  {
+    if (connection) connection.release();
   }
 });
 
@@ -355,6 +386,7 @@ app.get("/api/driver-points", async (req, res) =>
 });
 
 app.post("/api/driver-points", async (req, res) =>
+
 {
   const { driver_id, sponsor_id, point_change, reason } = req.body;
 
@@ -424,6 +456,120 @@ app.post("/api/driver-points", async (req, res) =>
     {
       connection.release();
     }
+  }
+});
+
+app.get("/api/driver/points", requireLogin, async (req, res) => {
+  try {
+    const query = "SELECT total_points FROM Drivers WHERE user_id = ?;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+    res.json({ total_points: rows[0].total_points });
+    
+  } catch (error) {
+    console.error("Error fetching driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Recent point-change history for the logged-in driver (feeds the dashboard's
+// "recent activity" card). Reuses the existing DriverPoints ledger table —
+// no schema changes. Scoped to req.userId so a driver only ever sees their own rows.
+app.get("/api/driver/points-history", requireLogin, async (req, res) => {
+  try {
+    const query =
+      "SELECT id, point_change, reason, transaction_date FROM DriverPoints " +
+      "WHERE driver_id = ? ORDER BY transaction_date DESC LIMIT 20;";
+    const [rows] = await pool.query(query, [req.userId]);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching driver points history:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Sponsor dashboard data comes only from the sponsor linked to this session.
+// Driver applications are not included because the schema has no application records yet.
+app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
+  try {
+    const [accounts] = await pool.query(
+      "SELECT u.role, s.sponsor_id, s.company_name " +
+      "FROM Users u LEFT JOIN SponsorUsers su ON su.user_id = u.user_id " +
+      "LEFT JOIN Sponsors s ON s.sponsor_id = su.sponsor_id " +
+      "WHERE u.user_id = ? LIMIT 1;",
+      [req.userId]
+    );
+    if (accounts.length === 0) return res.status(404).json({ message: "Account not found" });
+    if (accounts[0].role !== "Sponsor") {
+      return res.status(403).json({ message: "Sponsor access required" });
+    }
+
+    const { sponsor_id: sponsorId, company_name: companyName } = accounts[0];
+    if (!sponsorId) {
+      return res.status(404).json({ message: "No organization is linked to this sponsor account" });
+    }
+
+    const [driversResult, pointsResult, activityResult] = await Promise.allSettled([
+      pool.query(
+        "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
+        [sponsorId]
+      ),
+      pool.query(
+        "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
+        "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
+        "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
+        "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
+        [sponsorId]
+      ),
+      pool.query(
+        "SELECT dp.id, dp.driver_id, dp.transaction_date, u.name AS driver_name, " +
+        "dp.reason, dp.point_change FROM DriverPoints dp " +
+        "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
+        "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
+        [sponsorId]
+      )
+    ]);
+
+    const unavailable = [];
+    for (const [section, result] of [
+      ["drivers", driversResult], ["points", pointsResult], ["activity", activityResult]
+    ]) {
+      if (result.status === "rejected") {
+        console.error(`Sponsor dashboard ${section} query error:`, result.reason);
+        unavailable.push(section);
+      }
+    }
+
+    const activityRows = activityResult.status === "fulfilled" ? activityResult.value[0] : null;
+
+    return res.json({
+      companyName,
+      sponsoredDrivers: driversResult.status === "fulfilled"
+        ? Number(driversResult.value[0][0].sponsored_drivers) : null,
+      pointsAwardedThisMonth: pointsResult.status === "fulfilled"
+        ? Number(pointsResult.value[0][0].points_awarded_this_month) : null,
+      recentActivity: activityRows?.map((row) => ({
+        id: row.id,
+        date: row.transaction_date,
+        driver: row.driver_name || `Driver #${row.driver_id}`,
+        reason: row.reason || "Point adjustment",
+        points: row.point_change
+      })) ?? null,
+      unavailable
+    });
+  } catch (error) {
+    console.error("Sponsor dashboard error:", error);
+    if (error.code === "ER_NO_SUCH_TABLE" || error.code === "ER_BAD_FIELD_ERROR") {
+      return res.status(503).json({
+        message: "Sponsor account data is not set up in the database yet. Ask your team to check the sponsor tables."
+      });
+    }
+    return res.status(500).json({ message: "Unable to load the sponsor dashboard" });
   }
 });
 

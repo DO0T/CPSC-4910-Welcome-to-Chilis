@@ -232,7 +232,7 @@ function EditProfile() {
           </form>
         )}
 
-        <a href="/profile">Cancel</a>
+        <a href="/driver-dashboard">Cancel</a>
       </section>
     </main>
   );
