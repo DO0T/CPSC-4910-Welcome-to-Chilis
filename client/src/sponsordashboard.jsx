@@ -1,7 +1,12 @@
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import './driverdashboard.css';
 import './sponsordashboard.css';
 
-// Sample content for the sponsor prototype. No sponsor API is called here.
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
+
+// Dashboard figures are still sample data. The profile request only checks access.
 const sponsor = {
   name: 'North Star Transport',
   activeDrivers: 24,
@@ -22,6 +27,65 @@ const pointActivity = [
 ];
 
 function SponsorDashboard() {
+  const navigate = useNavigate();
+  const [access, setAccess] = useState('checking');
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) {
+      navigate('/login', { replace: true });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function verifySponsor() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          sessionStorage.removeItem('authToken');
+          navigate('/login', { replace: true });
+          return;
+        }
+        if (!response.ok) throw new Error('Unable to verify your account.');
+
+        const profile = await response.json();
+        if (controller.signal.aborted) return;
+        if (profile.role !== 'Sponsor') {
+          navigate('/', { replace: true });
+          return;
+        }
+
+        setAccess('allowed');
+      } catch (error) {
+        if (error.name !== 'AbortError' && !controller.signal.aborted) {
+          setAccess('error');
+        }
+      }
+    }
+
+    verifySponsor();
+    return () => controller.abort();
+  }, [navigate]);
+
+  if (access !== 'allowed') {
+    return (
+      <main className="dashboard-page sponsor-dashboard">
+        <div className="dashboard-content">
+          <p className="dashboard-message" role={access === 'error' ? 'alert' : 'status'}>
+            {access === 'error' ? (
+              <>Could not verify your account. <Link to="/login">Return to login</Link>.</>
+            ) : 'Checking your account…'}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="dashboard-page sponsor-dashboard">
       <div className="dashboard-content">
