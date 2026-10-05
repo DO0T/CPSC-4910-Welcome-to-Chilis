@@ -384,39 +384,61 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
       return res.status(404).json({ message: "No organization is linked to this sponsor account" });
     }
 
-    const [driverRows] = await pool.query(
-      "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
-      [sponsorId]
-    );
-    const [pointsRows] = await pool.query(
-      "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
-      "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
-      "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
-      "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
-      [sponsorId]
-    );
-    const [activityRows] = await pool.query(
-      "SELECT dp.id, dp.driver_id, dp.transaction_date, u.name AS driver_name, " +
-      "dp.reason, dp.point_change FROM DriverPoints dp " +
-      "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
-      "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
-      [sponsorId]
-    );
+    const [driversResult, pointsResult, activityResult] = await Promise.allSettled([
+      pool.query(
+        "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
+        [sponsorId]
+      ),
+      pool.query(
+        "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
+        "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
+        "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
+        "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
+        [sponsorId]
+      ),
+      pool.query(
+        "SELECT dp.id, dp.driver_id, dp.transaction_date, u.name AS driver_name, " +
+        "dp.reason, dp.point_change FROM DriverPoints dp " +
+        "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
+        "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
+        [sponsorId]
+      )
+    ]);
+
+    const unavailable = [];
+    for (const [section, result] of [
+      ["drivers", driversResult], ["points", pointsResult], ["activity", activityResult]
+    ]) {
+      if (result.status === "rejected") {
+        console.error(`Sponsor dashboard ${section} query error:`, result.reason);
+        unavailable.push(section);
+      }
+    }
+
+    const activityRows = activityResult.status === "fulfilled" ? activityResult.value[0] : null;
 
     return res.json({
       companyName,
-      sponsoredDrivers: Number(driverRows[0].sponsored_drivers),
-      pointsAwardedThisMonth: Number(pointsRows[0].points_awarded_this_month),
-      recentActivity: activityRows.map((row) => ({
+      sponsoredDrivers: driversResult.status === "fulfilled"
+        ? Number(driversResult.value[0][0].sponsored_drivers) : null,
+      pointsAwardedThisMonth: pointsResult.status === "fulfilled"
+        ? Number(pointsResult.value[0][0].points_awarded_this_month) : null,
+      recentActivity: activityRows?.map((row) => ({
         id: row.id,
         date: row.transaction_date,
         driver: row.driver_name || `Driver #${row.driver_id}`,
         reason: row.reason || "Point adjustment",
         points: row.point_change
-      }))
+      })) ?? null,
+      unavailable
     });
   } catch (error) {
     console.error("Sponsor dashboard error:", error);
+    if (error.code === "ER_NO_SUCH_TABLE" || error.code === "ER_BAD_FIELD_ERROR") {
+      return res.status(503).json({
+        message: "Sponsor account data is not set up in the database yet. Ask your team to check the sponsor tables."
+      });
+    }
     return res.status(500).json({ message: "Unable to load the sponsor dashboard" });
   }
 });

@@ -69,3 +69,44 @@ test('rejects a logged-in driver before reading sponsor data', async () => {
   expect(response.statusCode).toBe(403);
   expect(pool.query).toHaveBeenCalledTimes(1);
 });
+
+test('keeps available sponsor data when point queries fail', async () => {
+  const token = await loginAs('Sponsor');
+  pool.query
+    .mockResolvedValueOnce([[{ role: 'Sponsor', sponsor_id: 7, company_name: 'North Star Transport' }]])
+    .mockResolvedValueOnce([[{ sponsored_drivers: 3 }]])
+    .mockRejectedValueOnce(new Error('Point table unavailable'))
+    .mockRejectedValueOnce(new Error('Point table unavailable'));
+  const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  try {
+    const response = await request(app).get('/api/sponsor/dashboard')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({
+      companyName: 'North Star Transport', sponsoredDrivers: 3,
+      pointsAwardedThisMonth: null, recentActivity: null,
+      unavailable: ['points', 'activity'],
+    });
+  } finally {
+    errorLog.mockRestore();
+  }
+});
+
+test('explains when required sponsor account tables are missing', async () => {
+  const token = await loginAs('Sponsor');
+  const databaseError = Object.assign(new Error('Missing table'), { code: 'ER_NO_SUCH_TABLE' });
+  pool.query.mockRejectedValueOnce(databaseError);
+  const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  try {
+    const response = await request(app).get('/api/sponsor/dashboard')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body.message).toMatch(/sponsor tables/i);
+  } finally {
+    errorLog.mockRestore();
+  }
+});

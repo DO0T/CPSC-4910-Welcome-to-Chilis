@@ -97,11 +97,15 @@ function SponsorDashboard() {
           <dl className="sponsor-stats">
             <div className="sponsor-stat">
               <dt>Sponsored drivers</dt>
-              <dd>{sponsor.sponsoredDrivers.toLocaleString()}</dd>
+              <dd className={sponsor.sponsoredDrivers == null ? 'sponsor-stat-unavailable' : ''}>
+                {sponsor.sponsoredDrivers == null ? 'Unavailable' : sponsor.sponsoredDrivers.toLocaleString()}
+              </dd>
             </div>
             <div className="sponsor-stat">
               <dt>Points awarded this month</dt>
-              <dd>{sponsor.pointsAwardedThisMonth.toLocaleString()}</dd>
+              <dd className={sponsor.pointsAwardedThisMonth == null ? 'sponsor-stat-unavailable' : ''}>
+                {sponsor.pointsAwardedThisMonth == null ? 'Unavailable' : sponsor.pointsAwardedThisMonth.toLocaleString()}
+              </dd>
             </div>
           </dl>
         </section>
@@ -121,7 +125,9 @@ function SponsorDashboard() {
             <p className="dashboard-eyebrow">Point changes</p>
             <h2 id="sponsor-activity-heading" className="sponsor-section-title">Recent activity</h2>
           </header>
-          {sponsor.recentActivity.length === 0 ? (
+          {sponsor.recentActivity == null ? (
+            <p className="dashboard-message">Point activity is unavailable. Check the server logs for the failed query.</p>
+          ) : sponsor.recentActivity.length === 0 ? (
             <p className="dashboard-message">No point activity for this sponsor yet.</p>
           ) : (
             <ul className="sponsor-list">
