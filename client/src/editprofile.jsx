@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
+import DashboardButton from './DashboardButton.jsx';
+import './editprofile.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
@@ -120,18 +122,28 @@ function EditProfile() {
   };
 
   return (
-    <main className="login-page">
-      <section className="login-card" aria-labelledby="profile-title">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-          <h1 id="profile-title">Edit profile</h1>
-          <LogoutButton />
-        </div>
-        <p>Review and update your Chili&apos;s account details.</p>
+    <main className="profile-page">
+      <div className="profile-content">
+        <header className="profile-topbar">
+          <div>
+            <p className="profile-eyebrow">Account settings</p>
+            <h1 id="profile-title" className="profile-title">Edit profile</h1>
+            <p className="profile-intro">Review and update your Chili&apos;s account details.</p>
+          </div>
+          <nav className="profile-nav" aria-label="Account actions">
+            <DashboardButton />
+            <LogoutButton />
+          </nav>
+        </header>
 
         {isLoading ? <p role="status">Loading your profile…</p> : (
-          <form onSubmit={handleSubmit}>
-            <section aria-labelledby="photo-title">
-              <h2 id="photo-title">Profile picture</h2>
+          <form className="profile-form" onSubmit={handleSubmit}>
+            <section className="profile-card" aria-labelledby="photo-title">
+              <header className="profile-card-header">
+                <p className="profile-eyebrow">Your account</p>
+                <h2 id="photo-title">Profile picture</h2>
+              </header>
+              <div className="profile-card-body">
               {profile.profilePictureUrl ? (
                 <img
                   src={profile.profilePictureUrl}
@@ -141,7 +153,7 @@ function EditProfile() {
                   style={{ objectFit: 'cover', borderRadius: '50%' }}
                 />
               ) : (
-                <div aria-label="No profile picture">No photo</div>
+                <div className="profile-no-photo" aria-label="No profile picture">No photo</div>
               )}
 
               <label htmlFor="profile-picture-url">Profile picture URL</label>
@@ -161,10 +173,15 @@ function EditProfile() {
                   Remove picture
                 </button>
               )}
+              </div>
             </section>
 
-            <section aria-labelledby="details-title">
-              <h2 id="details-title">Profile details</h2>
+            <section className="profile-card" aria-labelledby="details-title">
+              <header className="profile-card-header">
+                <p className="profile-eyebrow">Personal information</p>
+                <h2 id="details-title">Profile details</h2>
+              </header>
+              <div className="profile-card-body">
               <label htmlFor="name">Name</label>
               <input
                 id="name"
@@ -188,10 +205,15 @@ function EditProfile() {
                 autoComplete="email"
                 required
               />
+              </div>
             </section>
 
-            <section aria-labelledby="password-title">
-              <h2 id="password-title">Change password</h2>
+            <section className="profile-card" aria-labelledby="password-title">
+              <header className="profile-card-header">
+                <p className="profile-eyebrow">Security</p>
+                <h2 id="password-title">Change password</h2>
+              </header>
+              <div className="profile-card-body">
               <p>Leave these fields blank to keep your current password.</p>
               <label htmlFor="current-password">Current password</label>
               <input
@@ -222,18 +244,18 @@ function EditProfile() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 autoComplete="new-password"
               />
+              </div>
             </section>
 
-            {error && <p role="alert">{error}</p>}
-            {message && <p role="status">{message}</p>}
-            <button type="submit" disabled={isSaving}>
+            {error && <p className="profile-feedback profile-error" role="alert">{error}</p>}
+            {message && <p className="profile-feedback profile-success" role="status">{message}</p>}
+            <button className="profile-save-button" type="submit" disabled={isSaving}>
               {isSaving ? 'Saving…' : 'Save changes'}
             </button>
           </form>
         )}
 
-        <a href="/driver-dashboard">Cancel</a>
-      </section>
+      </div>
     </main>
   );
 }
