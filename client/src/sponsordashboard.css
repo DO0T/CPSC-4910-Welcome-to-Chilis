@@ -2,16 +2,6 @@
   text-align: left;
 }
 
-.sponsor-demo-label {
-  padding: 8px 14px;
-  border: 1px solid #d0e2d9;
-  border-radius: 999px;
-  background: #e8f1ed;
-  color: #29485f;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .sponsor-section-title {
   margin: 0;
   color: #29485f;
@@ -21,7 +11,7 @@
 
 .sponsor-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   text-align: left;
 }
@@ -79,16 +69,6 @@
   margin-top: 4px;
   color: #55768d;
   font-size: 14px;
-}
-
-.sponsor-status {
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #e8f1ed;
-  color: #29485f;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .sponsor-points {

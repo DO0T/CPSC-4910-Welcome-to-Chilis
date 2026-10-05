@@ -363,6 +363,64 @@ app.get("/api/driver/points-history", requireLogin, async (req, res) => {
   }
 });
 
+// Sponsor dashboard data comes only from the sponsor linked to this session.
+// Driver applications are not included because the schema has no application records yet.
+app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
+  try {
+    const [accounts] = await pool.query(
+      "SELECT u.role, s.sponsor_id, s.company_name " +
+      "FROM Users u LEFT JOIN SponsorUsers su ON su.user_id = u.user_id " +
+      "LEFT JOIN Sponsors s ON s.sponsor_id = su.sponsor_id " +
+      "WHERE u.user_id = ? LIMIT 1;",
+      [req.userId]
+    );
+    if (accounts.length === 0) return res.status(404).json({ message: "Account not found" });
+    if (accounts[0].role !== "Sponsor") {
+      return res.status(403).json({ message: "Sponsor access required" });
+    }
+
+    const { sponsor_id: sponsorId, company_name: companyName } = accounts[0];
+    if (!sponsorId) {
+      return res.status(404).json({ message: "No organization is linked to this sponsor account" });
+    }
+
+    const [driverRows] = await pool.query(
+      "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
+      [sponsorId]
+    );
+    const [pointsRows] = await pool.query(
+      "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
+      "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
+      "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
+      "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
+      [sponsorId]
+    );
+    const [activityRows] = await pool.query(
+      "SELECT dp.id, dp.driver_id, dp.transaction_date, u.name AS driver_name, " +
+      "dp.reason, dp.point_change FROM DriverPoints dp " +
+      "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
+      "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
+      [sponsorId]
+    );
+
+    return res.json({
+      companyName,
+      sponsoredDrivers: Number(driverRows[0].sponsored_drivers),
+      pointsAwardedThisMonth: Number(pointsRows[0].points_awarded_this_month),
+      recentActivity: activityRows.map((row) => ({
+        id: row.id,
+        date: row.transaction_date,
+        driver: row.driver_name || `Driver #${row.driver_id}`,
+        reason: row.reason || "Point adjustment",
+        points: row.point_change
+      }))
+    });
+  } catch (error) {
+    console.error("Sponsor dashboard error:", error);
+    return res.status(500).json({ message: "Unable to load the sponsor dashboard" });
+  }
+});
+
 app.post("/api/login", async (req, res) => 
 {
   try 
