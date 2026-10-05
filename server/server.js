@@ -313,20 +313,54 @@ app.put("/api/profile", requireLogin, async (req, res) =>
       passwordHash = await bcrypt.hash(newPassword, 12);
     }
 
-    if (passwordHash)
-    {
-      await pool.query(
-        "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
-        [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
-      );
-    }
-    else
-    {
-      await pool.query(
-        "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
-        [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
-      );
-    }
+    let connection;
+
+try
+{
+  connection = await pool.getConnection();
+  await connection.beginTransaction();
+
+  if (passwordHash)
+  {
+    await connection.query(
+      "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
+      [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
+    );
+
+    await createAuditLog(
+      cleanEmail,
+      "Password Change",
+      "Success",
+      `User ID: ${req.userId}; Password changed through profile update`,
+      connection
+    );
+  }
+  else
+  {
+    await connection.query(
+      "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
+      [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
+    );
+  }
+
+  await connection.commit();
+}
+catch (error)
+{
+  if (connection)
+  {
+    await connection.rollback();
+  }
+
+  throw error;
+}
+finally
+{
+  if (connection)
+  {
+    connection.release();
+  }
+}
 
     return res.json({
       message: "Profile updated successfully",
