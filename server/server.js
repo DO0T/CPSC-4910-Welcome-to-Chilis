@@ -373,7 +373,10 @@ app.get("/api/driver-points", async (req, res) =>
 {
   try 
   {
-    const query = "SELECT * FROM DriverPoints;";
+    const query = `
+      SELECT user_id AS driver_id, sponsor_id, total_points
+      FROM Drivers;
+      `;
     const [rows] = await pool.query(query);
 
     res.json(rows);
@@ -410,36 +413,53 @@ app.post("/api/driver-points", async (req, res) =>
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    const query = `
-      INSERT INTO DriverPoints
-      (driver_id, sponsor_id, point_change, reason)
-      VALUES (?, ?, ?, ?);
-    `;
+    const [result] = await connection.query(
+      `
+        UPDATE Drivers
+        SET total_points = COALESCE(total_points, 0) + ?
+        WHERE user_id = ? AND sponsor_id = ?;
+      `,
+      [point_change, driver_id, sponsor_id]
+    );
 
-    const [result] = await connection.query(query,
-    [
-      driver_id,
-      sponsor_id,
-      point_change,
-      reason
-    ]);
+    if (result.affectedRows === 0)
+    {
+      await connection.rollback();
+
+      return res.status(404).json(
+      {
+        error: "Driver not found for the specified sponsor"
+      });
+    }
 
     await createAuditLog(
       null,
       "Point Change",
       "Success",
-      `Driver ID: ${driver_id}; Sponsor ID: ${sponsor_id}; Points changed by ${point_change}; Reason: ${reason}; Transaction ID: ${result.insertId}`,
+      `Driver ID: ${driver_id}; Sponsor ID: ${sponsor_id}; Points changed by ${point_change}; Reason: ${reason}`,
       connection
     );
 
     await connection.commit();
 
-    res.status(201).json(
+    const [rows] = await connection.query(
+      `
+        SELECT total_points
+        FROM Drivers
+        WHERE user_id = ?;
+      `,
+      [driver_id]
+    );
+
+    res.status(200).json(
     {
       message: "Driver points updated successfully",
-      transaction_id: result.insertId
+      driver_id: driver_id,
+      point_change: point_change,
+      total_points: rows[0].total_points
     });
   }
+
   catch (error)
   {
     if (connection)
