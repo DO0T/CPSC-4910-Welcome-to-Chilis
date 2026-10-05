@@ -117,7 +117,20 @@ function requireLogin(req, res, next)
   }
 
   req.userId = session.userId;
+  req.userRole = session.role;
   req.authToken = token;
+  next();
+}
+
+function requireAdmin(req, res, next)
+{
+  if (req.userRole !== "Admin")
+  {
+    return res.status(403).json({
+      message: "Admin access required"
+    });
+  }
+
   next();
 }
 
@@ -692,6 +705,7 @@ const sessionToken = crypto.randomBytes(32).toString("hex");
 
 sessions.set(sessionToken, {
   userId: userRecord.user_id,
+  role: userRecord.role,
   expiresAt: Date.now() + SESSION_DURATION_MS
 });
 
@@ -711,7 +725,7 @@ return res.status(200).json({
   }
 });
 
-app.get("/api/audit-logs", async (req, res) =>
+app.get("/api/audit-logs", requireLogin, requireAdmin, async (req, res) =>
 {
   try
   {
