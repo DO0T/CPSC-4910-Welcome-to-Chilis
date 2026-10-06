@@ -79,3 +79,42 @@ test('admin can view driver logs alphabetically', async () => {
   expect(query).toContain("WHERE U.role = 'Driver'");
   expect(query).toContain("ORDER BY A.username ASC");
 });
+
+test('admin can view sponsor logs alphabetically', async () => {
+  const token = await loginAsAdmin();
+
+  pool.query.mockResolvedValueOnce([[
+    {
+      log_id: 2,
+      username: 'alpha-sponsor@example.com',
+      event_category: 'Login Attempt'
+    },
+    {
+      log_id: 1,
+      username: 'beta-sponsor@example.com',
+      event_category: 'Login Attempt'
+    }
+  ]]);
+
+  const response = await request(app)
+    .get('/api/audit-logs/sponsors')
+    .set('Authorization', `Bearer ${token}`);
+
+  expect(response.statusCode).toBe(200);
+
+  expect(response.body).toEqual([
+    expect.objectContaining({
+      username: 'alpha-sponsor@example.com'
+    }),
+    expect.objectContaining({
+      username: 'beta-sponsor@example.com'
+    })
+  ]);
+
+  expect(pool.query).toHaveBeenCalledTimes(1);
+
+  const query = pool.query.mock.calls[0][0];
+
+  expect(query).toContain("WHERE U.role = 'Sponsor'");
+  expect(query).toContain("ORDER BY A.username ASC");
+});

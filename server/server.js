@@ -755,4 +755,27 @@ app.get("/api/audit-logs/drivers", requireLogin, requireAdmin, async (req, res) 
   }
 });
 
+app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res) =>
+{
+  try
+  {
+    const query = `
+      SELECT A.*
+      FROM AuditLog A
+      JOIN Users U ON A.username = U.username
+      WHERE U.role = 'Sponsor'
+      ORDER BY A.username ASC, A.event_date DESC;
+    `;
+
+    const [rows] = await pool.query(query);
+
+    res.json(rows);
+  }
+  catch (error)
+  {
+    console.error("Error fetching sponsor audit logs:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = app;
