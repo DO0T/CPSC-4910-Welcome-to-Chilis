@@ -8,16 +8,15 @@ const PORT = process.env.PORT || 5000;
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer"); // Added for sending emails
 
 app.use(cors());
 app.use(express.json());
 
 const pool = require("./db");
 
-async function verifyDatabaseConnection() 
-{ 
-  try 
-  {
+async function verifyDatabaseConnection() { 
+  try {
     const connection = await pool.getConnection();
     console.log("Database connection successful");
     connection.release();
@@ -26,28 +25,37 @@ async function verifyDatabaseConnection()
   }
 }
 
-app.get("/api/health", (req, res) => 
-{
-  res.json(
-  {
+app.get("/api/health", (req, res) => {
+  res.json({
     status: "ok",
     message: "Welcome to Chili's API is running",
   });
 });
 
-// In-memory sessions keep profile requests tied to the user who logged in.
-// Restarting the server invalidates these development sessions.
+// --- SESSION & TOKEN STORAGE ---
 const sessions = new Map();
 const SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
 
-function requireLogin(req, res, next)
-{
+// In-memory store for reset tokens (Token -> { email, expiresAt })
+const resetTokens = new Map();
+const RESET_TOKEN_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+// Configure the email transporter using Mailtrap sandbox
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 2525,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+function requireLogin(req, res, next) {
   const authorization = req.get("Authorization") || "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   const session = sessions.get(token);
 
-  if (!session || session.expiresAt <= Date.now())
-  {
+  if (!session || session.expiresAt <= Date.now()) {
     if (token) sessions.delete(token);
     return res.status(401).json({ message: "Please log in to continue" });
   }
@@ -57,62 +65,46 @@ function requireLogin(req, res, next)
   next();
 }
 
-function isValidPictureUrl(value)
-{
+function isValidPictureUrl(value) {
   if (!value) return true;
-  try
-  {
+  try {
     const url = new URL(value);
     return ["http:", "https:"].includes(url.protocol);
-  }
-  catch
-  {
+  } catch {
     return false;
   }
 }
 
-// Create a Driver or Sponsor account. Email is the username used at login.
-app.post("/api/signup", async (req, res) =>
-{
+app.post("/api/signup", async (req, res) => {
   let connection;
-  try
-  {
+  try {
     const { name, email, password, profilePictureUrl, role = "Driver", companyName } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanProfilePictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
     const cleanCompanyName = typeof companyName === "string" ? companyName.trim() : "";
 
-    if (!cleanName || !cleanEmail || typeof password !== "string" || !password)
-    {
+    if (!cleanName || !cleanEmail || typeof password !== "string" || !password) {
       return res.status(400).json({ message: "Name, email, and password are required" });
     }
 
-    // Basic server-side email format check; the browser's type=email is not enough.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
-    {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
-    if (role !== "Driver" && role !== "Sponsor")
-    {
+    if (role !== "Driver" && role !== "Sponsor") {
       return res.status(400).json({ message: "Please choose Driver or Sponsor" });
     }
 
-    if (role === "Sponsor" && !cleanCompanyName)
-    {
+    if (role === "Sponsor" && !cleanCompanyName) {
       return res.status(400).json({ message: "Company name is required for sponsor accounts" });
     }
 
-    if (cleanProfilePictureUrl)
-    {
-      try
-      {
+    if (cleanProfilePictureUrl) {
+      try {
         const pictureUrl = new URL(cleanProfilePictureUrl);
         if (!["http:", "https:"].includes(pictureUrl.protocol)) throw new Error("Invalid protocol");
-      }
-      catch
-      {
+      } catch {
         return res.status(400).json({ message: "Profile picture must be a valid HTTP or HTTPS URL" });
       }
     }
@@ -120,13 +112,13 @@ app.post("/api/signup", async (req, res) =>
     const passwordHash = await bcrypt.hash(password, 12);
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    
     const [result] = await connection.query(
       "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
       [cleanName, cleanEmail, passwordHash, role, cleanProfilePictureUrl || null]
     );
 
-    if (role === "Sponsor")
-    {
+    if (role === "Sponsor") {
       const [sponsor] = await connection.query(
         "INSERT INTO Sponsors (company_name) VALUES (?);",
         [cleanCompanyName]
@@ -135,9 +127,7 @@ app.post("/api/signup", async (req, res) =>
         "INSERT INTO SponsorUsers (user_id, sponsor_id) VALUES (?, ?);",
         [result.insertId, sponsor.insertId]
       );
-    }
-    else
-    {
+    } else {
       await connection.query(
         "INSERT INTO Drivers (user_id, total_points) VALUES (?, 0);",
         [result.insertId]
@@ -153,28 +143,161 @@ app.post("/api/signup", async (req, res) =>
       role,
       profilePictureUrl: cleanProfilePictureUrl || null
     });
-  }
-  catch (error)
-  {
+  } catch (error) {
     if (connection) await connection.rollback();
-    // Also handle duplicate usernames if two signup requests race.
-    if (error.code === "ER_DUP_ENTRY")
-    {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ message: "An account with this email already exists" });
     }
     console.error("Signup error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
-  }
-  finally
-  {
+  } finally {
     if (connection) connection.release();
   }
 });
 
-app.get("/api/profile", requireLogin, async (req, res) =>
-{
-  try
-  {
+app.post("/api/login", async (req, res) => {
+  try {
+    const {username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+    
+    const query = "SELECT * FROM Users WHERE username = ?;";
+    const [rows] = await pool.query(query, [username]);
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    const userRecord = rows[0];   
+    const match = await bcrypt.compare(password, userRecord.password_hash);
+
+    if (match) {
+      await pool.query(
+        "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Success', 'User logged in sucessfully');",
+        [username]
+      );
+
+      const sessionToken = crypto.randomBytes(32).toString("hex");
+      sessions.set(sessionToken, {
+        userId: userRecord.user_id,
+        expiresAt: Date.now() + SESSION_DURATION_MS
+      });
+
+      return res.status(200).json({ 
+        message: "Login successful",
+        token: sessionToken,
+        role: userRecord.role,
+        id: userRecord.user_id,
+        name: userRecord.name,
+        profilePictureUrl: userRecord.profile_picture_url
+      });
+    } else {
+      await pool.query(
+        "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Failure', 'Invalid username or password');",
+        [username]
+      );
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+  } catch(error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/logout", requireLogin, (req, res) => {
+  sessions.delete(req.authToken);
+  return res.json({ message: "Logged out successfully" });
+});
+
+// Password Resetting
+
+// Request Password Reset Link
+app.post("/api/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+    if (!cleanEmail) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const [rows] = await pool.query(
+      "SELECT user_id, name FROM Users WHERE username = ? LIMIT 1;",
+      [cleanEmail]
+    );
+
+    if (rows.length > 0) {
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      resetTokens.set(resetToken, {
+        email: cleanEmail,
+        expiresAt: Date.now() + RESET_TOKEN_DURATION_MS,
+      });
+
+      const frontendBase = process.env.FRONTEND_URL || "http://localhost:5173";
+      const resetLink = `${frontendBase}/reset-password?token=${resetToken}`;
+
+      await transporter.sendMail({
+        from: '"Good Driver Incentive Program" <support@gooddriverprogram.com>',
+        to: cleanEmail,
+        subject: "Password Reset Request",
+        text: `Hello ${rows[0].name},\n\nA password reset was requested for your account. Please click the link below to set a new password:\n\n${resetLink}\n\nThis link will expire in 1 hour. If you did not request this, you can safely ignore this email.`,
+      });
+    }
+
+    return res.status(200).json({
+      message: "If an account with that email exists, a password reset link has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+// Submit new password function
+app.post("/api/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+
+    if (!token || typeof newPassword !== "string" || !newPassword) {
+      return res.status(400).json({ message: "Token and new password are required" });
+    }
+
+    const tokenData = resetTokens.get(token);
+
+    if (!tokenData || tokenData.expiresAt <= Date.now()) {
+      if (tokenData) resetTokens.delete(token);
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await pool.query(
+      "UPDATE Users SET password_hash = ? WHERE username = ?;",
+      [passwordHash, tokenData.email]
+    );
+
+    // Write to audit log per specifications
+    await pool.query(
+      "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Password Change', 'Success', 'Password reset via email token link');",
+      [tokenData.email]
+    );
+
+    resetTokens.delete(token);
+
+    return res.status(200).json({ message: "Password has been successfully reset. You may now log in." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// --- PROFILE & DASHBOARD ROUTES ---
+
+app.get("/api/profile", requireLogin, async (req, res) => {
+  try {
     const [rows] = await pool.query(
       "SELECT user_id, name, username, role, profile_picture_url FROM Users WHERE user_id = ? LIMIT 1;",
       [req.userId]
@@ -189,35 +312,23 @@ app.get("/api/profile", requireLogin, async (req, res) =>
       role: user.role,
       profilePictureUrl: user.profile_picture_url
     });
-  }
-  catch (error)
-  {
+  } catch (error) {
     console.error("Profile fetch error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-app.post("/api/logout", requireLogin, (req, res) =>
-{
-  sessions.delete(req.authToken);
-  return res.json({ message: "Logged out successfully" });
-});
-
-app.put("/api/profile", requireLogin, async (req, res) =>
-{
-  try
-  {
+app.put("/api/profile", requireLogin, async (req, res) => {
+  try {
     const { name, email, profilePictureUrl, currentPassword, newPassword } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanPictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
 
-    if (!cleanName || !cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail))
-    {
+    if (!cleanName || !cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return res.status(400).json({ message: "A valid name and email are required" });
     }
-    if (!isValidPictureUrl(cleanPictureUrl))
-    {
+    if (!isValidPictureUrl(cleanPictureUrl)) {
       return res.status(400).json({ message: "Profile picture must be a valid HTTP or HTTPS URL" });
     }
 
@@ -225,16 +336,13 @@ app.put("/api/profile", requireLogin, async (req, res) =>
       "SELECT user_id FROM Users WHERE username = ? AND user_id <> ? LIMIT 1;",
       [cleanEmail, req.userId]
     );
-    if (duplicates.length > 0)
-    {
+    if (duplicates.length > 0) {
       return res.status(409).json({ message: "That email is already in use" });
     }
 
     let passwordHash;
-    if (newPassword)
-    {
-      if (typeof currentPassword !== "string" || !currentPassword)
-      {
+    if (newPassword) {
+      if (typeof currentPassword !== "string" || !currentPassword) {
         return res.status(400).json({ message: "Enter your current password to change it" });
       }
       const [userRows] = await pool.query(
@@ -242,22 +350,18 @@ app.put("/api/profile", requireLogin, async (req, res) =>
         [req.userId]
       );
       if (userRows.length === 0) return res.status(404).json({ message: "User not found" });
-      if (!(await bcrypt.compare(currentPassword, userRows[0].password_hash)))
-      {
+      if (!(await bcrypt.compare(currentPassword, userRows[0].password_hash))) {
         return res.status(401).json({ message: "Current password is incorrect" });
       }
       passwordHash = await bcrypt.hash(newPassword, 12);
     }
 
-    if (passwordHash)
-    {
+    if (passwordHash) {
       await pool.query(
         "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
         [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
       );
-    }
-    else
-    {
+    } else {
       await pool.query(
         "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
         [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
@@ -268,11 +372,8 @@ app.put("/api/profile", requireLogin, async (req, res) =>
       message: "Profile updated successfully",
       profile: { name: cleanName, email: cleanEmail, profilePictureUrl: cleanPictureUrl || null }
     });
-  }
-  catch (error)
-  {
-    if (error.code === "ER_DUP_ENTRY")
-    {
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ message: "That email is already in use" });
     }
     console.error("Profile update error:", error);
@@ -280,41 +381,23 @@ app.put("/api/profile", requireLogin, async (req, res) =>
   }
 });
 
-if (require.main === module) 
-  {
-  verifyDatabaseConnection();
-  app.listen(PORT, () => 
-  {
-    console.log(`Server running at http://localhost:${PORT}`);
-  });
-}
-
-app.get("/api/about", async (req, res) => 
-{
-  try 
-  {
+app.get("/api/about", async (req, res) => {
+  try {
     const query = "SELECT * FROM AboutPage ORDER BY CAST(SUBSTRING_INDEX(version_number, ' ', -1) AS UNSIGNED) DESC, id DESC;"; 
     const [rows] = await pool.query(query);
     res.json(rows);
-  }
-  catch (error) 
-  {
+  } catch (error) {
     console.error("Error fetching about info:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-app.get("/api/driver-points", async (req, res) =>
-{
-  try 
-  {
+app.get("/api/driver-points", async (req, res) => {
+  try {
     const query = "SELECT * FROM DriverPoints;";
     const [rows] = await pool.query(query);
-
     res.json(rows);
-  } 
-  catch (error) 
-  {
+  } catch (error) {
     console.error("Error fetching driver points:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -325,19 +408,17 @@ app.get("/api/driver/points", requireLogin, async (req, res) => {
     const query = "SELECT total_points FROM Drivers WHERE user_id = ?;";
     const [rows] = await pool.query(query, [req.userId]);
 
-    
     if (rows.length === 0) {
       return res.status(404).json({ error: "Driver not found" });
     }
     res.json({ total_points: rows[0].total_points });
-    
   } catch (error) {
     console.error("Error fetching driver points:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Recent point-change history for the logged-in driver (feeds the dashboard's
+// Recent point change history for the logged-in driver (feeds the dashboard's
 // "recent activity" card). Reuses the existing DriverPoints ledger table —
 // no schema changes. Scoped to req.userId so a driver only ever sees their own rows.
 app.get("/api/driver/points-history", requireLogin, async (req, res) => {
@@ -434,70 +515,12 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => 
-{
-  try 
-  {
-    // grabs the username and password from the frontend (react)
-    const {username, password } = req.body;
-
-    if (!username || !password) 
-    {
-      return res.status(400).json({ message: "Username and password are required" });
-    }
-    
-    const query = "SELECT * FROM Users WHERE username = ?;";
-    const [rows] = await pool.query(query, [username]);
-
-    if (rows.length === 0) 
-    {
-      return res.status(401).json({ message: "Invalid username or password" });
-    }
-
-  const userRecord = rows[0];   
-
-  const match = await bcrypt.compare(password, userRecord.password_hash);
-
-  if (match) 
-  {
-    await pool.query 
-    (
-      "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Success', 'User logged in sucessfully');",
-      [username]
-    );
-
-    const sessionToken = crypto.randomBytes(32).toString("hex");
-    sessions.set(sessionToken, {
-      userId: userRecord.user_id,
-      expiresAt: Date.now() + SESSION_DURATION_MS
-    });
-
-    return res.status(200).json
-    ({ 
-      message: "Login successful",
-      token: sessionToken,
-      role: userRecord.role,
-      id: userRecord.user_id,
-      name: userRecord.name,
-      profilePictureUrl: userRecord.profile_picture_url
-    });
-  }
-  else 
-  {
-    await pool.query 
-    (
-      "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Failure', 'Invalid username or password');",
-      [username]
-    );
-    return res.status(401).json({ message: "Invalid username or password" });
-  }
+// --- SERVER STARTUP ---
+if (require.main === module) {
+  verifyDatabaseConnection();
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
 }
-catch(error) 
-{
-  console.error("Login error:", error);
-  res.status(500).json({ error: "Internal Server Error" });
-}
-
-});
 
 module.exports = app;

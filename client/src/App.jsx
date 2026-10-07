@@ -6,6 +6,8 @@ import EditProfile from './editprofile.jsx';
 import DriverDashboard from './driverdashboard.jsx';
 import SponsorDashboard from './sponsordashboard.jsx';
 import About from './about.jsx';
+import ForgotPassword from "./ForgotPassword";
+import ResetPassword from "./ResetPassword";
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
       <Route path="/driver-dashboard" element={<DriverDashboard />} />
       <Route path="/sponsor-dashboard" element={<SponsorDashboard />} />
       <Route path="/admin-dashboard" element={<h1 style={{color: 'white'}}>Admin Dashboard</h1>} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
@@ -83,9 +83,9 @@ function Login() {
           <button type="submit">Log in</button>
         </form>
 
-        <a href="/forgot-password">Forgot your password?</a>
+        <Link to="/forgot-password">Forgot your password?</Link>
         <p>
-          Don&apos;t have an account? <a href="/signup">Sign up</a>
+          Don&apos;t have an account? <Link to="/signup">Sign up</Link>
         </p>
       </section>
     </main>
