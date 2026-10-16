@@ -25,8 +25,65 @@ async function verifyDatabaseConnection() {
   }
 }
 
-app.get("/api/health", (req, res) => {
-  res.json({
+async function createAuditLog(
+  username,
+  eventCategory,
+  status,
+  details,
+  db = pool
+)
+{
+  const query = `
+    INSERT INTO AuditLog
+    (
+      username,
+      event_category,
+      status,
+      details
+    )
+    VALUES (?, ?, ?, ?);
+  `;
+
+  await db.query(query,
+  [
+    username,
+    eventCategory,
+    status,
+    details
+  ]);
+}
+
+async function logApplicationChange(
+  driverId,
+  sponsorId,
+  status,
+  reason,
+  db = pool
+)
+{
+  if (status !== "ACCEPTED" && status !== "REJECTED")
+  {
+    throw new Error("Application status must be ACCEPTED or REJECTED");
+  }
+
+  if (!reason)
+  {
+    throw new Error("A reason is required for an application decision");
+  }
+
+  await createAuditLog(
+    null,
+    "Driver Application",
+    status,
+    `Driver ID: ${driverId}; Sponsor ID: ${sponsorId}; Reason: ${reason}`,
+    db
+  );
+}
+
+app.get("/api/health", (req, res) => 
+{
+  res.json(
+  {
     status: "ok",
     message: "Welcome to Chili's API is running",
   });
@@ -61,11 +118,25 @@ function requireLogin(req, res, next) {
   }
 
   req.userId = session.userId;
+  req.userRole = session.role;
   req.authToken = token;
   next();
 }
 
-function isValidPictureUrl(value) {
+function requireAdmin(req, res, next)
+{
+  if (req.userRole !== "Admin")
+  {
+    return res.status(403).json({
+      message: "Admin access required"
+    });
+  }
+
+  next();
+}
+
+function isValidPictureUrl(value)
+{
   if (!value) return true;
   try {
     const url = new URL(value);
@@ -167,6 +238,12 @@ app.post("/api/login", async (req, res) => {
     const [rows] = await pool.query(query, [username]);
 
     if (rows.length === 0) {
+      await createAuditLog(
+        username,
+        "Login Attempt",
+        "Failure",
+        "Invalid username or password"
+      );
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
@@ -182,6 +259,7 @@ app.post("/api/login", async (req, res) => {
       const sessionToken = crypto.randomBytes(32).toString("hex");
       sessions.set(sessionToken, {
         userId: userRecord.user_id,
+        role: userRecord.role,
         expiresAt: Date.now() + SESSION_DURATION_MS
       });
 
@@ -356,17 +434,54 @@ app.put("/api/profile", requireLogin, async (req, res) => {
       passwordHash = await bcrypt.hash(newPassword, 12);
     }
 
-    if (passwordHash) {
-      await pool.query(
-        "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
-        [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
-      );
-    } else {
-      await pool.query(
-        "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
-        [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
-      );
-    }
+    let connection;
+
+try
+{
+  connection = await pool.getConnection();
+  await connection.beginTransaction();
+
+  if (passwordHash)
+  {
+    await connection.query(
+      "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
+      [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
+    );
+
+    await createAuditLog(
+      cleanEmail,
+      "Password Change",
+      "Success",
+      `User ID: ${req.userId}; Password changed through profile update`,
+      connection
+    );
+  }
+  else
+  {
+    await connection.query(
+      "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
+      [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
+    );
+  }
+
+  await connection.commit();
+}
+catch (error)
+{
+  if (connection)
+  {
+    await connection.rollback();
+  }
+
+  throw error;
+}
+finally
+{
+  if (connection)
+  {
+    connection.release();
+  }
+}
 
     return res.json({
       message: "Profile updated successfully",
@@ -392,14 +507,110 @@ app.get("/api/about", async (req, res) => {
   }
 });
 
-app.get("/api/driver-points", async (req, res) => {
-  try {
-    const query = "SELECT * FROM DriverPoints;";
+app.get("/api/driver-points", async (req, res) =>
+{
+  try 
+  {
+    const query = `
+      SELECT user_id AS driver_id, sponsor_id, total_points
+      FROM Drivers;
+      `;
     const [rows] = await pool.query(query);
     res.json(rows);
   } catch (error) {
     console.error("Error fetching driver points:", error);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/driver-points", async (req, res) =>
+
+{
+  const { driver_id, sponsor_id, point_change, reason } = req.body;
+
+  if (
+    driver_id == null ||
+    sponsor_id == null ||
+    point_change == null ||
+    !reason
+  )
+  {
+    return res.status(400).json(
+    {
+      error: "driver_id, sponsor_id, point_change, and reason are required"
+    });
+  }
+
+  let connection;
+
+  try
+  {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [result] = await connection.query(
+      `
+        UPDATE Drivers
+        SET total_points = COALESCE(total_points, 0) + ?
+        WHERE user_id = ? AND sponsor_id = ?;
+      `,
+      [point_change, driver_id, sponsor_id]
+    );
+
+    if (result.affectedRows === 0)
+    {
+      await connection.rollback();
+
+      return res.status(404).json(
+      {
+        error: "Driver not found for the specified sponsor"
+      });
+    }
+
+    await createAuditLog(
+      null,
+      "Point Change",
+      "Success",
+      `Driver ID: ${driver_id}; Sponsor ID: ${sponsor_id}; Points changed by ${point_change}; Reason: ${reason}`,
+      connection
+    );
+
+    await connection.commit();
+
+    const [rows] = await connection.query(
+      `
+        SELECT total_points
+        FROM Drivers
+        WHERE user_id = ?;
+      `,
+      [driver_id]
+    );
+
+    res.status(200).json(
+    {
+      message: "Driver points updated successfully",
+      driver_id: driver_id,
+      point_change: point_change,
+      total_points: rows[0].total_points
+    });
+  }
+
+  catch (error)
+  {
+    if (connection)
+    {
+      await connection.rollback();
+    }
+
+    console.error("Error updating driver points:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+  finally
+  {
+    if (connection)
+    {
+      connection.release();
+    }
   }
 });
 
@@ -512,6 +723,68 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
       });
     }
     return res.status(500).json({ message: "Unable to load the sponsor dashboard" });
+  }
+});
+
+app.get("/api/audit-logs", requireLogin, requireAdmin, async (req, res) =>
+{
+  try
+  {
+    const query = "SELECT * FROM AuditLog ORDER BY event_date DESC;";
+    const [rows] = await pool.query(query);
+
+    res.json(rows);
+  }
+  catch (error)
+  {
+    console.error("Error fetching audit logs:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/audit-logs/drivers", requireLogin, requireAdmin, async (req, res) =>
+{
+  try
+  {
+    const query = `
+      SELECT A.*
+      FROM AuditLog A
+      JOIN Users U ON A.username = U.username
+      WHERE U.role = 'Driver'
+      ORDER BY A.username ASC, A.event_date DESC;
+    `;
+
+    const [rows] = await pool.query(query);
+
+    res.json(rows);
+  }
+  catch (error)
+  {
+    console.error("Error fetching driver audit logs:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res) =>
+{
+  try
+  {
+    const query = `
+      SELECT A.*
+      FROM AuditLog A
+      JOIN Users U ON A.username = U.username
+      WHERE U.role = 'Sponsor'
+      ORDER BY A.username ASC, A.event_date DESC;
+    `;
+
+    const [rows] = await pool.query(query);
+
+    res.json(rows);
+  }
+  catch (error)
+  {
+    console.error("Error fetching sponsor audit logs:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
