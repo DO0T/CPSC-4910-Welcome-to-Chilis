@@ -28,11 +28,10 @@ function Login() {
 
       if (response.ok) {
         sessionStorage.setItem('authToken', data.token);
+        sessionStorage.setItem('userRole', data.role);
         if (data.role === "Admin") navigate("/admin-dashboard");
         else if (data.role === "Sponsor") navigate("/sponsor-dashboard");
         else if (data.role === "Driver") navigate("/driver-dashboard");
-      } else {
-        alert(data.message); 
       }
     } catch (error) {
       console.error("Login request failed:", error);

@@ -5,12 +5,16 @@ import SignUp from './signup.jsx';
 import EditProfile from './editprofile.jsx';
 import DriverDashboard from './driverdashboard.jsx';
 import SponsorDashboard from './sponsordashboard.jsx';
+import AdminDashboard from './admindashboard.jsx';
+import ImpersonationBanner from './ImpersonationBanner.jsx';
 import About from './about.jsx';
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
 
 function App() {
   return (
+  <>
+  <ImpersonationBanner />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -19,10 +23,11 @@ function App() {
       <Route path="/about" element={<About />} />
       <Route path="/driver-dashboard" element={<DriverDashboard />} />
       <Route path="/sponsor-dashboard" element={<SponsorDashboard />} />
-      <Route path="/admin-dashboard" element={<h1 style={{color: 'white'}}>Admin Dashboard</h1>} />
+      <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
+    </>
   );
 }
 

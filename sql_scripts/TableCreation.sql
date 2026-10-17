@@ -41,3 +41,7 @@ CREATE TABLE AuditLog (
     status VARCHAR(50), 
     details TEXT 
 );
+
+
+ALTER TABLE Users 
+MODIFY COLUMN role ENUM('Driver', 'Sponsor', 'Admin', 'None') NOT NULL DEFAULT 'Driver';
