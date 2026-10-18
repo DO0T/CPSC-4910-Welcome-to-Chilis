@@ -2,6 +2,22 @@
   text-align: left;
 }
 
+.sponsor-dashboard-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e8efec;
+  border-radius: 999px;
+  background: #fff;
+  color: #29485f;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  text-decoration: none;
+}
+
+.sponsor-dashboard-link:hover { background: #e8f1ed; border-color: #55768d; }
+.sponsor-dashboard-link:focus-visible { outline: 2px solid #55768d; outline-offset: 2px; }
+
 .sponsor-section-title {
   margin: 0;
   color: #29485f;
