@@ -1,0 +1,21 @@
+CREATE TABLE SponsorCatalogItems (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sponsor_id INT NOT NULL,
+    ebay_item_id VARCHAR(255) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    image_url VARCHAR(2048),
+    item_url VARCHAR(2048),
+    ebay_price DECIMAL(12, 2) NOT NULL,
+    price_override DECIMAL(12, 2) NULL,
+    currency CHAR(3) NOT NULL DEFAULT 'USD',
+    media_rating VARCHAR(32) NULL,
+    family_friendly_confirmed TINYINT(1) NOT NULL DEFAULT 0,
+    is_available TINYINT(1) NOT NULL DEFAULT 1,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    last_checked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_sponsor_ebay_item (sponsor_id, ebay_item_id),
+    INDEX idx_sponsor_active (sponsor_id, active),
+    CONSTRAINT fk_catalog_sponsor FOREIGN KEY (sponsor_id) REFERENCES Sponsors(sponsor_id)
+);

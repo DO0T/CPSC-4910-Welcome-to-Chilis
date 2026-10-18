@@ -14,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 const pool = require("./db");
+const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 
 async function verifyDatabaseConnection() { 
   try {
@@ -145,6 +146,8 @@ function requireAdmin(req, res, next)
 
   next();
 }
+
+app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
 
 function isValidPictureUrl(value)
 {
