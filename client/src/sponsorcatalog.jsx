@@ -159,7 +159,7 @@ function SponsorCatalog() {
         </nav>
       </header>
 
-      {catalog.demoMode && <p className="catalog-demo-note" role="status">Demo listings are shown until eBay developer credentials are configured on the server.</p>}
+      <p className="catalog-demo-note" role="status">This catalog uses sample products from DummyJSON. Prices are treated as USD for this prototype; these are not purchasable listings.</p>
       {error && <p className="catalog-feedback catalog-error" role="alert">{error}</p>}
       {notice && <p className="catalog-feedback" role="status">{notice}</p>}
 
@@ -168,30 +168,30 @@ function SponsorCatalog() {
           <div><h2 id="catalog-items-heading">Your catalog</h2><p>Rewards selected for your company. Point costs use {dollars(catalog.pointValue)} per point.</p></div>
           <span className="catalog-count">{catalog.items.length} {catalog.items.length === 1 ? 'item' : 'items'}</span>
         </header>
-        {catalog.items.length === 0 ? <p className="dashboard-message">No items yet. Search eBay below to choose the first reward.</p> :
+        {catalog.items.length === 0 ? <p className="dashboard-message">No items yet. Search sample products below to choose the first reward.</p> :
           <div className="catalog-list">
             {catalog.items.map((item) => <article className="catalog-item" key={item.id}>
               <ListingImage item={item} />
               <div className="catalog-item-body">
                 <h3>{item.title}</h3>
-                <p className="catalog-item-meta">{item.demoItem ? 'Demo item' : item.available ? 'Available' : 'Unavailable'}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
+                <p className="catalog-item-meta">{item.source === 'eBay' ? 'Legacy eBay item · saved details only' : item.available ? 'In sample stock' : 'Out of sample stock'}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
                 <p className="catalog-price"><strong>{item.pointCost == null ? 'Point cost unavailable' : `${item.pointCost.toLocaleString()} pts`}</strong> <span>from {dollars(item.effectivePrice)}</span></p>
-                {item.priceOverride != null && <p className="catalog-item-meta">eBay price: {dollars(item.ebayPrice)} · Sponsor override active</p>}
+                {item.priceOverride != null && <p className="catalog-item-meta">Saved source price: {dollars(item.sourcePrice)} · Sponsor override active</p>}
                 <form className="catalog-override" onSubmit={(event) => {
                   event.preventDefault();
                   act(item.id, `/${item.id}`, { method: 'PATCH', body: JSON.stringify({ priceOverride: drafts[item.id] ?? item.priceOverride ?? '' }) }, 'Price override saved.');
                 }}>
                   <label htmlFor={`override-${item.id}`}>Override USD price</label>
                   <div className="catalog-override-row">
-                    <input id={`override-${item.id}`} type="number" min="0.01" step="0.01" placeholder={item.ebayPrice} value={drafts[item.id] ?? item.priceOverride ?? ''} onChange={(event) => setDrafts({ ...drafts, [item.id]: event.target.value })} />
+                    <input id={`override-${item.id}`} type="number" min="0.01" step="0.01" placeholder={item.sourcePrice} value={drafts[item.id] ?? item.priceOverride ?? ''} onChange={(event) => setDrafts({ ...drafts, [item.id]: event.target.value })} />
                     <button type="submit" disabled={busyId === item.id}>Save price</button>
-                    {item.priceOverride != null && <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}`, { method: 'PATCH', body: JSON.stringify({ priceOverride: null }) }, 'Using the eBay price again.').then((ok) => { if (ok) setDrafts((current) => ({ ...current, [item.id]: '' })); })}>Clear override</button>}
+                    {item.priceOverride != null && <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}`, { method: 'PATCH', body: JSON.stringify({ priceOverride: null }) }, 'Using the saved source price again.').then((ok) => { if (ok) setDrafts((current) => ({ ...current, [item.id]: '' })); })}>Clear override</button>}
                   </div>
                 </form>
                 <div className="catalog-item-actions">
-                  <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}/refresh`, { method: 'POST' }, 'Listing details refreshed.')}>Refresh eBay details</button>
+                  {item.source === 'DummyJSON' && <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}/refresh`, { method: 'POST' }, 'Sample product details refreshed.')}>Refresh details</button>}
                   <button type="button" disabled={busyId === item.id} onClick={() => removeItem(item)}>Remove</button>
-                  {item.itemUrl && <a href={item.itemUrl} target="_blank" rel="noopener noreferrer">View on eBay</a>}
+                  {item.itemUrl && <a href={item.itemUrl} target="_blank" rel="noopener noreferrer">{item.source === 'eBay' ? 'View on eBay' : 'View sample data'}</a>}
                 </div>
               </div>
             </article>)}
@@ -199,17 +199,17 @@ function SponsorCatalog() {
       </section>
 
       <section className="dashboard-card" aria-labelledby="catalog-search-heading">
-        <header className="dashboard-card-header"><h2 id="catalog-search-heading">Find items</h2><p>Search fixed-price eBay listings and choose rewards for your drivers.</p></header>
+        <header className="dashboard-card-header"><h2 id="catalog-search-heading">Find items</h2><p>Search sample products and choose rewards for your drivers.</p></header>
         <div className="catalog-search-content">
           <form className="catalog-search-form" onSubmit={search}>
-            <label htmlFor="catalog-query">Search eBay</label>
-            <div><input id="catalog-query" type="search" minLength="2" maxLength="100" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try travel mug" /><button type="submit" disabled={searching}>{searching ? 'Searching…' : 'Search'}</button></div>
+            <label htmlFor="catalog-query">Search sample products</label>
+            <div><input id="catalog-query" type="search" minLength="2" maxLength="100" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try phone" /><button type="submit" disabled={searching}>{searching ? 'Searching…' : 'Search'}</button></div>
           </form>
           {results && (results.length ? <div className="catalog-results">
             {results.map((item) => <article className="catalog-result" key={item.itemId}>
               <ListingImage item={item} />
               <div><h3>{item.title}</h3><p>{dollars(item.price)}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
-                {!item.available ? <span className="catalog-item-meta">Unavailable</span> : selectedItems.has(item.itemId) ? <span className="catalog-item-meta">Already in your catalog</span> :
+                {!item.available ? <span className="catalog-item-meta">Out of sample stock</span> : selectedItems.has(item.itemId) ? <span className="catalog-item-meta">Already in your catalog</span> :
                   <button type="button" onClick={() => { setSelectedId(item.itemId); setConfirmed(false); }}>Choose item</button>}
                 {selectedId === item.itemId && !selectedItems.has(item.itemId) && <div className="catalog-confirm">
                   <label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I confirm this item is family-friendly. This is my approval, not an automated rating check.</label>
@@ -217,7 +217,7 @@ function SponsorCatalog() {
                 </div>}
               </div>
             </article>)}
-          </div> : <p className="catalog-empty-search">No listings found. Try a different search.</p>)}
+          </div> : <p className="catalog-empty-search">No sample products found. Try a different search.</p>)}
         </div>
       </section>
     </div>

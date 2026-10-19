@@ -1,13 +1,12 @@
 const express = require('express');
 const request = require('supertest');
 
-jest.mock('./ebay', () => ({
-  isDemoMode: jest.fn(() => true),
+jest.mock('./products', () => ({
   searchItems: jest.fn(),
   getItem: jest.fn(),
 }));
 
-const ebay = require('./ebay');
+const products = require('./products');
 const { createSponsorCatalogRouter, pointCost } = require('./sponsor-catalog');
 const pool = { query: jest.fn() };
 const app = express();
@@ -20,14 +19,14 @@ app.use((req, res, next) => {
 app.use('/api/sponsor/catalog', createSponsorCatalogRouter(pool));
 
 const sponsor = { sponsor_id: 7, company_name: 'North Star', point_value: '0.01' };
-const listing = { itemId: 'demo|mug', title: 'Travel mug', imageUrl: '', itemUrl: '', price: '19.95', currency: 'USD', mediaRating: null, available: true, fixedPrice: true };
+const listing = { itemId: 'dummyjson:23', title: 'Travel mug', imageUrl: '', itemUrl: '', price: '19.95', currency: 'USD', mediaRating: null, available: true, fixedPrice: true };
 
 beforeEach(() => {
   pool.query.mockReset();
-  ebay.searchItems.mockReset();
-  ebay.getItem.mockReset();
+  products.searchItems.mockReset();
+  products.getItem.mockReset();
   pool.query.mockResolvedValue([[sponsor]]);
-  ebay.getItem.mockResolvedValue(listing);
+  products.getItem.mockResolvedValue(listing);
 });
 
 test('converts effective USD price to whole points by rounding up', () => {
@@ -44,26 +43,27 @@ test('rejects non-sponsor roles before any catalog query', async () => {
 
 test('lists only active items for the linked sponsor and calculates override points', async () => {
   pool.query.mockResolvedValueOnce([[sponsor]])
-    .mockResolvedValueOnce([[{ id: 2, ebay_item_id: 'demo|mug', title: 'Travel mug', ebay_price: '19.95', price_override: '10.00', currency: 'USD', is_available: 1 }]]);
+    .mockResolvedValueOnce([[{ id: 2, ebay_item_id: listing.itemId, title: 'Travel mug', ebay_price: '19.95', price_override: '10.00', currency: 'USD', is_available: 1 }]]);
   const response = await request(app).get('/api/sponsor/catalog');
   expect(response.statusCode).toBe(200);
   expect(response.body.items[0].pointCost).toBe(1000);
+  expect(response.body.items[0]).toMatchObject({ source: 'DummyJSON', sourcePrice: '19.95' });
   expect(pool.query.mock.calls[1][1]).toEqual([7]);
   expect(pool.query.mock.calls[1][0]).toContain('active = 1');
 });
 
-test('searches only after resolving the sponsor and returns demo listings', async () => {
-  ebay.searchItems.mockResolvedValue([listing]);
+test('searches only after resolving the sponsor and returns sample products', async () => {
+  products.searchItems.mockResolvedValue([listing]);
   const response = await request(app).get('/api/sponsor/catalog/search?q=mug');
   expect(response.statusCode).toBe(200);
-  expect(response.body).toMatchObject({ demoMode: true, items: [listing] });
+  expect(response.body).toMatchObject({ items: [listing] });
 });
 
 test('requires family-friendly approval and rejects non-G/PG rated media', async () => {
   const missingApproval = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId });
   expect(missingApproval.statusCode).toBe(400);
-  expect(ebay.getItem).not.toHaveBeenCalled();
-  ebay.getItem.mockResolvedValue({ ...listing, mediaRating: 'R' });
+  expect(products.getItem).not.toHaveBeenCalled();
+  products.getItem.mockResolvedValue({ ...listing, mediaRating: 'R' });
   const rated = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId, familyFriendlyConfirmed: true });
   expect(rated.statusCode).toBe(400);
   expect(pool.query).toHaveBeenCalledTimes(2);
@@ -91,7 +91,7 @@ test('validates override prices and scopes updates to the linked sponsor', async
   expect(pool.query.mock.calls[1][1]).toEqual(['18.50', 5, 7]);
 });
 
-test('refresh updates eBay price without touching sponsor price override', async () => {
+test('refresh updates source price without touching sponsor price override', async () => {
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: listing.itemId }]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
   const response = await request(app).post('/api/sponsor/catalog/5/refresh');
   expect(response.statusCode).toBe(200);
@@ -101,17 +101,25 @@ test('refresh updates eBay price without touching sponsor price override', async
 
 test('marks an ended listing unavailable and keeps it in the catalog', async () => {
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: listing.itemId }]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
-  ebay.getItem.mockRejectedValue({ status: 404, message: 'No longer available.' });
+  products.getItem.mockRejectedValue({ status: 404, message: 'No longer available.' });
   const response = await request(app).post('/api/sponsor/catalog/5/refresh');
   expect(response.statusCode).toBe(200);
   expect(pool.query.mock.calls[2][0]).toContain('is_available = 0');
 });
 
-test('keeps catalog data unchanged when eBay fails', async () => {
+test('keeps catalog data unchanged when DummyJSON fails', async () => {
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: listing.itemId }]]);
-  ebay.getItem.mockRejectedValue({ status: 502, message: 'eBay is unavailable.' });
+  products.getItem.mockRejectedValue({ status: 502, message: 'DummyJSON is unavailable.' });
   const response = await request(app).post('/api/sponsor/catalog/5/refresh');
   expect(response.statusCode).toBe(502);
+  expect(pool.query).toHaveBeenCalledTimes(2);
+});
+
+test('keeps legacy eBay records visible but does not refresh them using DummyJSON', async () => {
+  pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: 'demo|mug' }]]);
+  const response = await request(app).post('/api/sponsor/catalog/5/refresh');
+  expect(response.statusCode).toBe(409);
+  expect(products.getItem).not.toHaveBeenCalled();
   expect(pool.query).toHaveBeenCalledTimes(2);
 });
 

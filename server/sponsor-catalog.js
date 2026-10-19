@@ -1,5 +1,5 @@
 const express = require('express');
-const ebay = require('./ebay');
+const products = require('./products');
 
 function money(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
@@ -16,15 +16,18 @@ function pointCost(price, pointValue) {
 }
 
 function serialize(row, pointValue) {
+  // Keep using the existing eBay-named columns so deployed catalogs need no data migration.
+  // New sample products are distinguished by their dummyjson: item ID prefix.
   const effectivePrice = row.price_override == null ? row.ebay_price : row.price_override;
+  const source = row.ebay_item_id.startsWith('dummyjson:') ? 'DummyJSON' : 'eBay';
   return {
     id: row.id,
     itemId: row.ebay_item_id,
-    demoItem: row.ebay_item_id.startsWith('demo|'),
+    source,
     title: row.title,
     imageUrl: row.image_url || '',
     itemUrl: row.item_url || '',
-    ebayPrice: String(row.ebay_price),
+    sourcePrice: String(row.ebay_price),
     priceOverride: row.price_override == null ? null : String(row.price_override),
     effectivePrice: String(effectivePrice),
     currency: row.currency,
@@ -74,7 +77,6 @@ function createSponsorCatalogRouter(pool) {
       res.json({
         companyName: req.catalogSponsor.company_name,
         pointValue: String(req.catalogSponsor.point_value),
-        demoMode: ebay.isDemoMode(),
         items: rows.map((row) => serialize(row, req.catalogSponsor.point_value)),
       });
     } catch (error) {
@@ -86,8 +88,8 @@ function createSponsorCatalogRouter(pool) {
     const query = String(req.query.q || '').trim();
     if (query.length < 2 || query.length > 100) return res.status(400).json({ message: 'Enter 2–100 characters to search.' });
     try {
-      const items = await ebay.searchItems(query);
-      res.json({ demoMode: ebay.isDemoMode(), items });
+      const items = await products.searchItems(query);
+      res.json({ items });
     } catch (error) {
       handleError(res, error);
     }
@@ -98,7 +100,7 @@ function createSponsorCatalogRouter(pool) {
     if (!itemId || itemId.length > 255) return res.status(400).json({ message: 'Select a valid listing.' });
     if (req.body?.familyFriendlyConfirmed !== true) return res.status(400).json({ message: 'Confirm this item is family-friendly before adding it.' });
     try {
-      const item = await ebay.getItem(itemId);
+      const item = await products.getItem(itemId);
       if (item.itemId !== itemId || item.currency !== 'USD' || !money(item.price)) {
         return res.status(400).json({ message: 'This listing needs a valid USD price.' });
       }
@@ -166,7 +168,10 @@ function createSponsorCatalogRouter(pool) {
       if (!rows.length) return res.status(404).json({ message: 'Catalog item not found.' });
       let item;
       try {
-        item = await ebay.getItem(rows[0].ebay_item_id);
+        if (!rows[0].ebay_item_id.startsWith('dummyjson:')) {
+          return res.status(409).json({ message: 'This legacy eBay item cannot be refreshed from DummyJSON. Remove it and choose a sample product instead.' });
+        }
+        item = await products.getItem(rows[0].ebay_item_id);
       } catch (error) {
         if (error.status !== 404) throw error;
         await pool.query(
@@ -176,7 +181,7 @@ function createSponsorCatalogRouter(pool) {
         return res.json({ message: 'Listing is no longer available.' });
       }
       if (item.itemId !== rows[0].ebay_item_id) {
-        return res.status(502).json({ message: 'eBay returned a different listing. The catalog was not changed.' });
+        return res.status(502).json({ message: 'The product service returned a different item. The catalog was not changed.' });
       }
       const validPrice = item.currency === 'USD' && money(item.price) !== null;
       const available = item.available && item.fixedPrice !== false && validPrice &&
@@ -195,7 +200,7 @@ function createSponsorCatalogRouter(pool) {
           [id, sponsorId]
         );
       }
-      res.json({ message: available ? 'eBay details refreshed.' : 'Listing updated and marked unavailable.' });
+      res.json({ message: available ? 'Sample product details refreshed.' : 'Product updated and marked unavailable.' });
     } catch (error) {
       handleError(res, error);
     }
