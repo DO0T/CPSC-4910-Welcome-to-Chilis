@@ -17,16 +17,14 @@ const pool = require("./db");
 const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 const { createAlertRouter } = require('./alerts');
 
-async function verifyDatabaseConnection() { 
+async function verifyDatabaseConnection() {
   try {
     const connection = await pool.getConnection();
     console.log("Database connection successful");
 
-    try 
-    {
-      await connection.query ("ALTER TABLE Users MODIFY COLUMN role ENUM('Driver', 'Sponsor', 'Admin', 'None') NOT NULL DEFAULT 'Driver';");
-    } catch (migrationError) 
-    {
+    try {
+      await connection.query("ALTER TABLE Users MODIFY COLUMN role ENUM('Driver', 'Sponsor', 'Admin', 'None') NOT NULL DEFAULT 'Driver';");
+    } catch (migrationError) {
       console.warn("Schema check note:", migrationError.message);
     }
 
@@ -42,8 +40,7 @@ async function createAuditLog(
   status,
   details,
   db = pool
-)
-{
+) {
   const query = `
     INSERT INTO AuditLog
     (
@@ -56,12 +53,12 @@ async function createAuditLog(
   `;
 
   await db.query(query,
-  [
-    username,
-    eventCategory,
-    status,
-    details
-  ]);
+    [
+      username,
+      eventCategory,
+      status,
+      details
+    ]);
 }
 
 async function logApplicationChange(
@@ -70,15 +67,12 @@ async function logApplicationChange(
   status,
   reason,
   db = pool
-)
-{
-  if (status !== "ACCEPTED" && status !== "REJECTED")
-  {
+) {
+  if (status !== "ACCEPTED" && status !== "REJECTED") {
     throw new Error("Application status must be ACCEPTED or REJECTED");
   }
 
-  if (!reason)
-  {
+  if (!reason) {
     throw new Error("A reason is required for an application decision");
   }
 
@@ -91,13 +85,12 @@ async function logApplicationChange(
   );
 }
 
-app.get("/api/health", (req, res) => 
-{
+app.get("/api/health", (req, res) => {
   res.json(
-  {
-    status: "ok",
-    message: "Welcome to Chili's API is running",
-  });
+    {
+      status: "ok",
+      message: "Welcome to Chili's API is running",
+    });
 });
 
 // --- SESSION & TOKEN STORAGE ---
@@ -136,10 +129,8 @@ function requireLogin(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next)
-{
-  if (!req.isAdmin)
-  {
+function requireAdmin(req, res, next) {
+  if (!req.isAdmin) {
     return res.status(403).json({
       message: "Admin access required"
     });
@@ -151,8 +142,7 @@ function requireAdmin(req, res, next)
 app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
 app.use('/api/alerts', requireLogin, createAlertRouter(pool));
 
-function isValidPictureUrl(value)
-{
+function isValidPictureUrl(value) {
   if (!value) return true;
   try {
     const url = new URL(value);
@@ -173,17 +163,18 @@ app.get("/api/session", requireLogin, async (req, res) => {
     return res.json({
       userId: req.userId,
       role: req.userRole,
+      pointAlertsEnabled: typeof pointAlertsEnabled === "boolean" ? pointAlertsEnabled : true,
       isAdmin: req.isAdmin,
       impersonating: req.sessionData.impersonating || null,
       originalAdminId: req.sessionData.originalAdminId || null,
       user: activeUser
         ? {
-            id: activeUser.user_id,
-            name: activeUser.name,
-            email: activeUser.username,
-            role: activeUser.role,
-            profilePictureUrl: activeUser.profile_picture_url,
-          }
+          id: activeUser.user_id,
+          name: activeUser.name,
+          email: activeUser.username,
+          role: activeUser.role,
+          profilePictureUrl: activeUser.profile_picture_url,
+        }
         : null,
     });
   } catch (error) {
@@ -218,15 +209,15 @@ app.post("/api/signup", async (req, res) => {
     }
 
     if (cleanProfilePictureUrl && !isValidPictureUrl(cleanProfilePictureUrl)) {
-          return res
-          .status(400)
-          .json({ message: "Profile picture must be a valid HTTP or HTTPS URL" });
+      return res
+        .status(400)
+        .json({ message: "Profile picture must be a valid HTTP or HTTPS URL" });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     connection = await pool.getConnection();
     await connection.beginTransaction();
-    
+
     const [result] = await connection.query(
       "INSERT INTO Users (name, username, password_hash, role, profile_picture_url) VALUES (?, ?, ?, ?, ?);",
       [cleanName, cleanEmail, passwordHash, role, cleanProfilePictureUrl || null]
@@ -282,12 +273,12 @@ app.post("/api/signup", async (req, res) => {
 
 app.post("/api/login", async (req, res) => {
   try {
-    const {username, password } = req.body;
+    const { username, password } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ message: "Username and password are required" });
     }
-    
+
     const query = "SELECT * FROM Users WHERE username = ?;";
     const [rows] = await pool.query(query, [username]);
 
@@ -301,7 +292,7 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    const userRecord = rows[0];   
+    const userRecord = rows[0];
     const match = await bcrypt.compare(password, userRecord.password_hash);
 
     if (match) {
@@ -329,7 +320,7 @@ app.post("/api/login", async (req, res) => {
         expiresAt: Date.now() + SESSION_DURATION_MS
       });
 
-      return res.status(200).json({ 
+      return res.status(200).json({
         message: "Login successful",
         token: sessionToken,
         role: userRecord.role,
@@ -344,7 +335,7 @@ app.post("/api/login", async (req, res) => {
       );
       return res.status(401).json({ message: "Invalid username or password" });
     }
-  } catch(error) {
+  } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -446,7 +437,7 @@ app.post("/api/reset-password", async (req, res) => {
 app.get("/api/profile", requireLogin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT user_id, name, username, role, profile_picture_url FROM Users WHERE user_id = ? LIMIT 1;",
+      "SELECT user_id, name, username, role, profile_picture_url, point_alerts_enabled FROM Users WHERE user_id = ? LIMIT 1;",
       [req.userId]
     );
     if (rows.length === 0) return res.status(404).json({ message: "User not found" });
@@ -460,6 +451,7 @@ app.get("/api/profile", requireLogin, async (req, res) => {
       profilePictureUrl: user.profile_picture_url,
       isAdmin: req.isAdmin,
       impersonating: req.sessionData.impersonating || null,
+      pointAlertsEnabled: Number(user.point_alerts_enabled) === 1,
     });
   } catch (error) {
     console.error("Profile fetch error:", error);
@@ -469,7 +461,7 @@ app.get("/api/profile", requireLogin, async (req, res) => {
 
 app.put("/api/profile", requireLogin, async (req, res) => {
   try {
-    const { name, email, profilePictureUrl, currentPassword, newPassword } = req.body || {};
+    const { name, email, profilePictureUrl, currentPassword, newPassword, pointAlertsEnabled } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     const cleanPictureUrl = typeof profilePictureUrl === "string" ? profilePictureUrl.trim() : "";
@@ -521,44 +513,46 @@ app.put("/api/profile", requireLogin, async (req, res) => {
 
       if (passwordHash) {
         await connection.query(
-        "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
-        [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
-    );
+          "UPDATE Users SET name = ?, username = ?, profile_picture_url = ?, password_hash = ? WHERE user_id = ?;",
+          [cleanName, cleanEmail, cleanPictureUrl || null, passwordHash, req.userId]
+        );
 
-    await createAuditLog(
-      cleanEmail,
-      "Password Change",
-      "Success",
-      `User ID: ${req.userId}; Password changed through profile update`,
-      connection
-    );
-  }
-  else
-  {
-    await connection.query(
-      "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
-      [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
-    );
-  }
+        await createAuditLog(
+          cleanEmail,
+          "Password Change",
+          "Success",
+          `User ID: ${req.userId}; Password changed through profile update`,
+          connection
+        );
+      }
+      else {
+        await connection.query(
+          "UPDATE Users SET name = ?, username = ?, profile_picture_url = ? WHERE user_id = ?;",
+          [cleanName, cleanEmail, cleanPictureUrl || null, req.userId]
+        );
+      }
 
-  await connection.commit();
-}
-catch (error)
-{
-  if (connection)
-  {
-    await connection.rollback();
-  }
+      if (typeof pointAlertsEnabled === "boolean") {
+        await connection.query(
+          "UPDATE Users SET point_alerts_enabled = ? WHERE user_id = ?;",
+          [pointAlertsEnabled ? 1 : 0, req.userId]
+        );
+      }
 
-  throw error;
-}
-finally
-{
-  if (connection)
-  {
-    connection.release();
-  }
-}
+      await connection.commit();
+    }
+    catch (error) {
+      if (connection) {
+        await connection.rollback();
+      }
+
+      throw error;
+    }
+    finally {
+      if (connection) {
+        connection.release();
+      }
+    }
 
     return res.json({
       message: "Profile updated successfully",
@@ -575,7 +569,7 @@ finally
 
 app.get("/api/about", async (req, res) => {
   try {
-    const query = "SELECT * FROM AboutPage ORDER BY CAST(SUBSTRING_INDEX(version_number, ' ', -1) AS UNSIGNED) DESC, id DESC;"; 
+    const query = "SELECT * FROM AboutPage ORDER BY CAST(SUBSTRING_INDEX(version_number, ' ', -1) AS UNSIGNED) DESC, id DESC;";
     const [rows] = await pool.query(query);
     res.json(rows);
   } catch (error) {
@@ -584,8 +578,7 @@ app.get("/api/about", async (req, res) => {
   }
 });
 
-app.get("/api/driver-points", async (req, res) =>
-{
+app.get("/api/driver-points", async (req, res) => {
   try {
     const query = `
       SELECT d.user_id AS driver_id, u.name AS driver_name, u.username AS driver_email,
@@ -625,7 +618,7 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
     // Look up driver's current sponsor if sponsor_id was not explicitly passed
     const [driverRows] = await connection.query(
-      "SELECT d.user_id, d.sponsor_id, d.total_points, u.username FROM Drivers d JOIN Users u ON u.user_id = d.user_id WHERE d.user_id = ? LIMIT 1;",
+      "SELECT d.user_id, d.sponsor_id, d.total_points, u.username, u.point_alerts_enabled FROM Drivers d JOIN Users u ON u.user_id = d.user_id WHERE d.user_id = ? LIMIT 1;",
       [driver_id]
     );
 
@@ -661,21 +654,23 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
       `,
       [driver_id, effectiveSponsorId || null, numericChange, String(reason).trim()]
     );
+    
 
-  const pointsAlertMessage = numericChange > 0
-    ? "You gained " + numericChange + " points: " + String(reason).trim()
-    : "You lost " + Math.abs(numericChange) + " points: " + String(reason).trim();
-  await connection.query(
-    "INSERT INTO UserAlerts (user_id, alert_type, message) VALUES (?, 'points', ?);",
-    [Number(driver_id), pointsAlertMessage]
-  );
+    if (Number(driverRows[0].point_alerts_enabled) === 1) {
+      const pointsAlertMessage = numericChange > 0
+        ? "You gained " + numericChange + " points: " + String(reason).trim()
+        : "You lost " + Math.abs(numericChange) + " points: " + String(reason).trim();
+      await connection.query(
+        "INSERT INTO UserAlerts (user_id, alert_type, message) VALUES (?, 'points', ?);",
+        [Number(driver_id), pointsAlertMessage]
+      );
+    }
 
     await createAuditLog(
       driverRows[0].username,
       "Point Change",
       "Success",
-      `Driver ID: ${driver_id}; Sponsor ID: ${
-        effectiveSponsorId || "Admin"
+      `Driver ID: ${driver_id}; Sponsor ID: ${effectiveSponsorId || "Admin"
       }; Points changed by ${numericChange}; Reason: ${String(reason).trim()}`,
       connection
     );
@@ -740,9 +735,9 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
   try {
     const [accounts] = await pool.query(
       "SELECT u.role, s.sponsor_id, s.company_name " +
-        "FROM Users u LEFT JOIN SponsorUsers su ON su.user_id = u.user_id " +
-        "LEFT JOIN Sponsors s ON s.sponsor_id = su.sponsor_id " +
-        "WHERE u.user_id = ? LIMIT 1;",
+      "FROM Users u LEFT JOIN SponsorUsers su ON su.user_id = u.user_id " +
+      "LEFT JOIN Sponsors s ON s.sponsor_id = su.sponsor_id " +
+      "WHERE u.user_id = ? LIMIT 1;",
       [req.userId]
     );
     if (accounts.length === 0)
@@ -779,16 +774,16 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
         ),
         pool.query(
           "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
-            "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
-            "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
-            "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
+          "FROM DriverPoints WHERE sponsor_id = ? AND point_change > 0 " +
+          "AND transaction_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') " +
+          "AND transaction_date < DATE_FORMAT(CURRENT_DATE() + INTERVAL 1 MONTH, '%Y-%m-01');",
           [sponsorId]
         ),
         pool.query(
           "SELECT dp.id, dp.driver_id, dp.transaction_date, u.name AS driver_name, " +
-            "dp.reason, dp.point_change FROM DriverPoints dp " +
-            "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
-            "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
+          "dp.reason, dp.point_change FROM DriverPoints dp " +
+          "LEFT JOIN Users u ON u.user_id = dp.driver_id " +
+          "WHERE dp.sponsor_id = ? ORDER BY dp.transaction_date DESC, dp.id DESC LIMIT 10;",
           [sponsorId]
         ),
       ]);
@@ -883,14 +878,14 @@ app.get("/api/admin/users", requireLogin, requireAdmin, async (req, res) => {
         row.role === "Sponsor"
           ? row.sponsorUserSponsorId
           : row.role === "Driver"
-          ? row.driverSponsorId
-          : null,
+            ? row.driverSponsorId
+            : null,
       affiliatedOrganization:
         row.role === "Sponsor"
           ? row.sponsorOrganization || "Unassigned"
           : row.role === "Driver"
-          ? row.driverSponsorOrganization || "Unassigned"
-          : null,
+            ? row.driverSponsorOrganization || "Unassigned"
+            : null,
       totalPoints: row.role === "Driver" ? Number(row.totalPoints) : null,
     }));
 
@@ -1138,8 +1133,8 @@ app.put(
         profilePictureUrl === "" || profilePictureUrl === null
           ? null
           : typeof profilePictureUrl === "string"
-          ? profilePictureUrl.trim()
-          : existingUser.profile_picture_url;
+            ? profilePictureUrl.trim()
+            : existingUser.profile_picture_url;
 
       if (!["Driver", "Sponsor", "Admin", "None"].includes(nextRole)) {
         await connection.rollback();
@@ -1181,8 +1176,7 @@ app.put(
           cleanEmail,
           "Password Change",
           "Success",
-          `Admin (ID: ${
-            req.sessionData.originalAdminId || req.userId
+          `Admin (ID: ${req.sessionData.originalAdminId || req.userId
           }) reset password for User ID: ${targetUserId}`,
           connection
         );
@@ -1374,8 +1368,7 @@ app.post(
         driver.email,
         "Driver Application",
         "REJECTED",
-        `Driver ID: ${driverId} dropped from Sponsor ID: ${
-          previousSponsorId || "N/A"
+        `Driver ID: ${driverId} dropped from Sponsor ID: ${previousSponsorId || "N/A"
         } (${previousCompany}); Reason: ${reason}`,
         connection
       );
@@ -1410,7 +1403,7 @@ app.post(
   }
 );
 
- // Assign a Driver to a Sponsor Organization
+// Assign a Driver to a Sponsor Organization
 app.post(
   "/api/admin/drivers/:driverId/assign",
   requireLogin,
@@ -1476,7 +1469,7 @@ app.post(
   }
 );
 
- // Assume Identity / View Site As a Standard Driver or Sponsor User
+// Assume Identity / View Site As a Standard Driver or Sponsor User
 app.post(
   "/api/admin/impersonate",
   requireLogin,
@@ -1545,7 +1538,7 @@ app.post(
   }
 );
 
- //Stop Impersonating and Return to Admin Identity
+//Stop Impersonating and Return to Admin Identity
 app.post(
   "/api/admin/stop-impersonating",
   requireLogin,
@@ -1574,7 +1567,7 @@ app.post(
   }
 );
 
- // Update AboutPage Sprint Metadata from Admin Panel
+// Update AboutPage Sprint Metadata from Admin Panel
 app.post("/api/admin/about", requireLogin, requireAdmin, async (req, res) => {
   try {
     const {
@@ -1667,10 +1660,8 @@ app.get("/api/audit-logs", requireLogin, requireAdmin, async (req, res) => {
 });
 
 
-app.get("/api/audit-logs/drivers", requireLogin, requireAdmin, async (req, res) =>
-{
-  try
-  {
+app.get("/api/audit-logs/drivers", requireLogin, requireAdmin, async (req, res) => {
+  try {
     const query = `
       SELECT A.*
       FROM AuditLog A
@@ -1683,17 +1674,14 @@ app.get("/api/audit-logs/drivers", requireLogin, requireAdmin, async (req, res) 
 
     res.json(rows);
   }
-  catch (error)
-  {
+  catch (error) {
     console.error("Error fetching driver audit logs:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res) =>
-{
-  try
-  {
+app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res) => {
+  try {
     const query = `
       SELECT A.*
       FROM AuditLog A
@@ -1706,8 +1694,7 @@ app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res)
 
     res.json(rows);
   }
-  catch (error)
-  {
+  catch (error) {
     console.error("Error fetching sponsor audit logs:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }

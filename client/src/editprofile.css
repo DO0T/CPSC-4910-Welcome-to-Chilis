@@ -148,7 +148,7 @@
   font-size: 13px;
 }
 
-.profile-card-body > p {
+.profile-card-body>p {
   margin: 0;
   color: #55768d;
 }
@@ -198,6 +198,21 @@
 .profile-success {
   background: #e8f1ed;
   color: #29485f;
+}
+
+.profile-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0 !important;
+  cursor: pointer;
+}
+
+.profile-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: #29485f;
 }
 
 @media (max-width: 600px) {

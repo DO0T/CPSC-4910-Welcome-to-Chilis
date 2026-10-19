@@ -247,6 +247,31 @@ function EditProfile() {
               </div>
             </section>
 
+            
+            {profile.role === 'Driver' && (
+              <section className="profile-card" aria-labelledby="point-alerts-title">
+                <header className="profile-card-header">
+                  <p className="profile-eyebrow">Notifications</p>
+                  <h2 id="point-alerts-title">Point change alerts</h2>
+                </header>
+                <div className="profile-card-body">
+                  <label className="profile-checkbox-label" htmlFor="point-alerts-enabled">
+                    <input
+                      id="point-alerts-enabled"
+                      type="checkbox"
+                      checked={profile.pointAlertsEnabled}
+                      onChange={(event) => setProfile((current) => ({
+                        ...current,
+                        pointAlertsEnabled: event.target.checked,
+                      }))}
+                    />
+                    Receive alerts when points are added or removed
+                  </label>
+                  <p>Turn this off to stop future point change alerts.</p>
+                </div>
+              </section>
+            )}
+
             {error && <p className="profile-feedback profile-error" role="alert">{error}</p>}
             {message && <p className="profile-feedback profile-success" role="status">{message}</p>}
             <button className="profile-save-button" type="submit" disabled={isSaving}>
