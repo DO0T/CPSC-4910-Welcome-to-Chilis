@@ -1,0 +1,90 @@
+.alert-center {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  font-family: inherit;
+}
+.alert-center-trigger {
+  display: flex;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: #29485f;
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(25, 49, 65, .2);
+}
+.alert-center-count {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 4px;
+  background: #d22c2c;
+  color: white;
+  font-size: 12px;
+}
+.alert-center-panel {
+  position: absolute;
+  right: 0;
+  bottom: 58px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  border: 1px solid #dbe5e1;
+  border-radius: 16px;
+  background: white;
+  color: #29485f;
+  box-shadow: 0 16px 48px rgba(25, 49, 65, .22);
+}
+.alert-center-heading {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #4f6b5e;
+}
+.alert-center-heading h2 { margin: 0; font-size: 18px; }
+.alert-center-heading button { border: 0; background: none; font-size: 24px; cursor: pointer; }
+.alert-center-list { list-style: none; margin: 0; padding: 0; }
+.alert-center-item { padding: 16px 20px; border-top: 1px solid #e8efec; }
+.alert-center-item p { margin: 6px 0; line-height: 1.4; }
+.alert-center-item time { color: #718895; font-size: 12px; }
+.idle-warning {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1001;
+  width: min(360px, calc(100vw - 48px));
+  box-sizing: border-box;
+  border: 1px solid #e4a72b;
+  border-left: 5px solid #e4a72b;
+  border-radius: 12px;
+  padding: 18px 20px;
+  background: #fffaf0;
+  color: #29485f;
+  box-shadow: 0 12px 36px rgba(25, 49, 65, .2);
+}
+.idle-warning p { margin: 8px 0 14px; }
+.idle-warning button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 15px;
+  background: #29485f;
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* Hide the old driver-only mock card while replacing it with the shared alert center. */
+.dashboard-alerts { display: none; }
+@media (max-width: 520px) {
+  .alert-center, .idle-warning { right: 16px; bottom: 16px; }
+}

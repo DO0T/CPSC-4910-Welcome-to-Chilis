@@ -11,6 +11,7 @@ import ImpersonationBanner from './ImpersonationBanner.jsx';
 import About from './about.jsx';
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
+import AlertSystem from './AlertSystem.jsx';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
+    <AlertSystem />
     </>
   );
 }

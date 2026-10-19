@@ -12,6 +12,8 @@ function EditProfile() {
     name: '',
     email: '',
     profilePictureUrl: '',
+    role: '',
+    pointAlertsEnabled: true,
   });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -47,6 +49,8 @@ function EditProfile() {
             name: data.name || '',
             email: data.email || '',
             profilePictureUrl: data.profilePictureUrl || '',
+            role: data.role || '',
+            pointAlertsEnabled: Number(data.point_alerts_enabled) === 1,
           });
         }
       })
@@ -93,6 +97,7 @@ function EditProfile() {
         },
         body: JSON.stringify({
           ...profile,
+          point_alerts_enabled: profile.pointAlertsEnabled ? 1 : 0,
           currentPassword,
           newPassword,
         }),
@@ -144,35 +149,35 @@ function EditProfile() {
                 <h2 id="photo-title">Profile picture</h2>
               </header>
               <div className="profile-card-body">
-              {profile.profilePictureUrl ? (
-                <img
-                  src={profile.profilePictureUrl}
-                  alt="Your profile"
-                  width="96"
-                  height="96"
-                  style={{ objectFit: 'cover', borderRadius: '50%' }}
-                />
-              ) : (
-                <div className="profile-no-photo" aria-label="No profile picture">No photo</div>
-              )}
+                {profile.profilePictureUrl ? (
+                  <img
+                    src={profile.profilePictureUrl}
+                    alt="Your profile"
+                    width="96"
+                    height="96"
+                    style={{ objectFit: 'cover', borderRadius: '50%' }}
+                  />
+                ) : (
+                  <div className="profile-no-photo" aria-label="No profile picture">No photo</div>
+                )}
 
-              <label htmlFor="profile-picture-url">Profile picture URL</label>
-              <input
-                id="profile-picture-url"
-                name="profilePictureUrl"
-                type="url"
-                value={profile.profilePictureUrl}
-                onChange={handleProfileChange}
-                placeholder="https://example.com/photo.jpg"
-              />
-              {profile.profilePictureUrl && (
-                <button
-                  type="button"
-                  onClick={() => setProfile((current) => ({ ...current, profilePictureUrl: '' }))}
-                >
-                  Remove picture
-                </button>
-              )}
+                <label htmlFor="profile-picture-url">Profile picture URL</label>
+                <input
+                  id="profile-picture-url"
+                  name="profilePictureUrl"
+                  type="url"
+                  value={profile.profilePictureUrl}
+                  onChange={handleProfileChange}
+                  placeholder="https://example.com/photo.jpg"
+                />
+                {profile.profilePictureUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setProfile((current) => ({ ...current, profilePictureUrl: '' }))}
+                  >
+                    Remove picture
+                  </button>
+                )}
               </div>
             </section>
 
@@ -182,29 +187,29 @@ function EditProfile() {
                 <h2 id="details-title">Profile details</h2>
               </header>
               <div className="profile-card-body">
-              <label htmlFor="name">Name</label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={profile.name}
-                onChange={handleProfileChange}
-                placeholder="Your name"
-                autoComplete="name"
-                required
-              />
+                <label htmlFor="name">Name</label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={profile.name}
+                  onChange={handleProfileChange}
+                  placeholder="Your name"
+                  autoComplete="name"
+                  required
+                />
 
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={profile.email}
-                onChange={handleProfileChange}
-                placeholder="you@example.com"
-                autoComplete="email"
-                required
-              />
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={profile.email}
+                  onChange={handleProfileChange}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                />
               </div>
             </section>
 
@@ -214,38 +219,63 @@ function EditProfile() {
                 <h2 id="password-title">Change password</h2>
               </header>
               <div className="profile-card-body">
-              <p>Leave these fields blank to keep your current password.</p>
-              <label htmlFor="current-password">Current password</label>
-              <input
-                id="current-password"
-                name="currentPassword"
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                autoComplete="current-password"
-              />
+                <p>Leave these fields blank to keep your current password.</p>
+                <label htmlFor="current-password">Current password</label>
+                <input
+                  id="current-password"
+                  name="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  autoComplete="current-password"
+                />
 
-              <label htmlFor="new-password">New password</label>
-              <input
-                id="new-password"
-                name="newPassword"
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                autoComplete="new-password"
-              />
+                <label htmlFor="new-password">New password</label>
+                <input
+                  id="new-password"
+                  name="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  autoComplete="new-password"
+                />
 
-              <label htmlFor="confirm-password">Confirm new password</label>
-              <input
-                id="confirm-password"
-                name="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                autoComplete="new-password"
-              />
+                <label htmlFor="confirm-password">Confirm new password</label>
+                <input
+                  id="confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
+                />
               </div>
             </section>
+
+
+            {profile.role === 'Driver' && (
+              <section className="profile-card" aria-labelledby="point-alerts-title">
+                <header className="profile-card-header">
+                  <p className="profile-eyebrow">Notifications</p>
+                  <h2 id="point-alerts-title">Point change alerts</h2>
+                </header>
+                <div className="profile-card-body">
+                  <label className="profile-checkbox-label" htmlFor="point-alerts-enabled">
+                    <input
+                      id="point-alerts-enabled"
+                      type="checkbox"
+                      checked={profile.pointAlertsEnabled}
+                      onChange={(event) => setProfile((current) => ({
+                        ...current,
+                        pointAlertsEnabled: event.target.checked,
+                      }))}
+                    />
+                    Receive alerts when points are added or removed
+                  </label>
+                  <p>Turn this off to stop future point change alerts.</p>
+                </div>
+              </section>
+            )}
 
             {error && <p className="profile-feedback profile-error" role="alert">{error}</p>}
             {message && <p className="profile-feedback profile-success" role="status">{message}</p>}
