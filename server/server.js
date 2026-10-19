@@ -15,6 +15,7 @@ app.use(express.json());
 
 const pool = require("./db");
 const { createSponsorCatalogRouter } = require('./sponsor-catalog');
+const { createAlertRouter } = require('./alerts');
 
 async function verifyDatabaseConnection() { 
   try {
@@ -148,6 +149,7 @@ function requireAdmin(req, res, next)
 }
 
 app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
+app.use('/api/alerts', requireLogin, createAlertRouter(pool));
 
 function isValidPictureUrl(value)
 {
@@ -659,6 +661,14 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
       `,
       [driver_id, effectiveSponsorId || null, numericChange, String(reason).trim()]
     );
+
+  const pointsAlertMessage = numericChange > 0
+    ? "You gained " + numericChange + " points: " + String(reason).trim()
+    : "You lost " + Math.abs(numericChange) + " points: " + String(reason).trim();
+  await connection.query(
+    "INSERT INTO UserAlerts (user_id, alert_type, message) VALUES (?, 'points', ?);",
+    [Number(driver_id), pointsAlertMessage]
+  );
 
     await createAuditLog(
       driverRows[0].username,

@@ -11,6 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
 // there is nothing real to connect this card to without adding one. That's a
 // follow-up task, not a front-end wiring problem — see the comment near the
 // alerts section below for what the new table would need.
+// Mock alerts now serves as back-up data in case the API call fails, so that the card can still be displayed.
 const MOCK_ALERTS = [
   { id: 1, date: '2026-09-20', message: '25 points were deducted from your account — reason: late delivery.' },
   { id: 2, date: '2026-09-18', message: '50 points were added to your account — reason: safe driving bonus.' },
@@ -192,7 +193,6 @@ function DriverDashboard() {
           )}
         </section>
 
-        {/* Alerts stays on mock data — see the MOCK_ALERTS comment above for why. */}
         <section className="dashboard-card dashboard-alerts" aria-labelledby="alerts-heading">
           <header className="dashboard-card-header dashboard-alerts-header">
             <p className="dashboard-eyebrow">Alerts</p>
