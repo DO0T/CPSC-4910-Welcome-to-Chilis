@@ -556,7 +556,7 @@ app.put("/api/profile", requireLogin, async (req, res) => {
 
     return res.json({
       message: "Profile updated successfully",
-      profile: { name: cleanName, email: cleanEmail, profilePictureUrl: cleanPictureUrl || null }
+      profile: { name: cleanName, email: cleanEmail, profilePictureUrl: cleanPictureUrl || null, pointAlertsEnabled,}
     });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {

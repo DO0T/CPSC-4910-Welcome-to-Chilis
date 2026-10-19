@@ -50,7 +50,7 @@ function EditProfile() {
             email: data.email || '',
             profilePictureUrl: data.profilePictureUrl || '',
             role: data.role || '',
-            pointAlertsEnabled: Number(data.point_alerts_enabled) === 1,
+            pointAlertsEnabled: data.pointAlertsEnabled === true,
           });
         }
       })
