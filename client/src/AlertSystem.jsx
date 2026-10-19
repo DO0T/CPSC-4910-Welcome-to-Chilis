@@ -140,6 +140,7 @@ function AlertSystem() {
                       {new Intl.DateTimeFormat(undefined, {
                         dateStyle: 'medium',
                         timeStyle: 'short',
+                        timeZone: 'America/New_York',
                       }).format(new Date(alert.created_at))}
                     </time>
                   </li>
