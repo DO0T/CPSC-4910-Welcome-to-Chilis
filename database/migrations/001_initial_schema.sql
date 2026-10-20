@@ -4,7 +4,18 @@ CREATE TABLE Users (
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('Driver', 'Sponsor', 'Admin') NOT NULL,
-    profile_picture_url VARCHAR(2048) NULL
+    profile_picture_url VARCHAR(2048) NULL,
+    point_alerts_enabled TINYINT(1) NOT NULL DEFAULT 1
+);
+
+CREATE TABLE UserAlerts (
+    alert_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    alert_type VARCHAR(50) NOT NULL,
+    message VARCHAR(500) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_alerts_user_created (user_id, created_at),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE Sponsors (
