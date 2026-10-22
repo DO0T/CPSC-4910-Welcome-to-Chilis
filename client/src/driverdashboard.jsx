@@ -6,6 +6,16 @@ import './driverdashboard.css';
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
 
+const SPONSORS_PER_PAGE = 5;
+const SPONSOR_FILTERS = [
+  { value: 'all', label: 'All sponsors' },
+  { value: 'available', label: 'Open for applications' },
+  { value: 'pending', label: 'Application pending' },
+  { value: 'sponsored', label: 'Current sponsor' },
+  { value: 'approved', label: 'Application approved' },
+  { value: 'cooldown', label: 'Waiting to reapply' },
+];
+
 // MOCK_ALERTS is still fake data on purpose: there is no Alerts table in the
 // schema yet (confirmed against sql_scripts/TableCreation.sql and the ERD), so
 // there is nothing real to connect this card to without adding one. That's a
@@ -42,6 +52,9 @@ function DriverDashboard() {
   const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
   const [submittingSponsorId, setSubmittingSponsorId] = useState(null);
   const [applicationNotice, setApplicationNotice] = useState({ text: '', error: false });
+  const [sponsorSearch, setSponsorSearch] = useState('');
+  const [sponsorFilter, setSponsorFilter] = useState('all');
+  const [visibleSponsorCount, setVisibleSponsorCount] = useState(SPONSORS_PER_PAGE);
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -191,6 +204,13 @@ function DriverDashboard() {
     .filter((item) => Date.now() - new Date(item.date).getTime() <= oneWeekMs)
     .reduce((sum, item) => sum + item.points, 0);
 
+  const normalizedSearch = sponsorSearch.trim().toLocaleLowerCase();
+  const filteredSponsors = sponsors.data.filter((sponsor) =>
+    sponsor.companyName.toLocaleLowerCase().includes(normalizedSearch) &&
+    (sponsorFilter === 'all' || sponsor.availability === sponsorFilter)
+  );
+  const visibleSponsors = filteredSponsors.slice(0, visibleSponsorCount);
+
   return (
     <main className="dashboard-page">
       <div className="dashboard-content">
@@ -246,26 +266,67 @@ function DriverDashboard() {
           ) : sponsors.data.length === 0 ? (
             <p className="dashboard-message">No sponsors are available yet.</p>
           ) : (
-            <ul className="dashboard-sponsor-list">
-              {sponsors.data.map((sponsor) => (
-                <li className="dashboard-sponsor-item" key={sponsor.sponsorId}>
-                  <div>
-                    <h3>{sponsor.companyName}</h3>
-                    <p className="dashboard-sponsor-status">
-                      {sponsor.availability === 'pending' ? 'Application pending'
-                        : sponsor.availability === 'sponsored' ? 'Your current sponsor'
-                          : sponsor.availability === 'approved' ? 'Application approved'
-                            : sponsor.availability === 'cooldown' ? 'Reapply 30 days after your denial'
-                              : 'Open for applications'}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => applyToSponsor(sponsor.sponsorId)}
-                    disabled={!sponsor.canApply || submittingSponsorId !== null}>
-                    {submittingSponsorId === sponsor.sponsorId ? 'Applying…' : 'Apply to sponsor'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="dashboard-sponsor-controls" role="search" aria-label="Find sponsors">
+                <div className="dashboard-sponsor-control">
+                  <label htmlFor="sponsor-search">Search sponsors</label>
+                  <input id="sponsor-search" type="search" value={sponsorSearch}
+                    placeholder="Search by organization name"
+                    onChange={(event) => {
+                      setSponsorSearch(event.target.value);
+                      setVisibleSponsorCount(SPONSORS_PER_PAGE);
+                    }} />
+                </div>
+                <div className="dashboard-sponsor-control">
+                  <label htmlFor="sponsor-filter">Filter by status</label>
+                  <select id="sponsor-filter" value={sponsorFilter}
+                    onChange={(event) => {
+                      setSponsorFilter(event.target.value);
+                      setVisibleSponsorCount(SPONSORS_PER_PAGE);
+                    }}>
+                    {SPONSOR_FILTERS.map((filter) => (
+                      <option value={filter.value} key={filter.value}>{filter.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {filteredSponsors.length === 0 ? (
+                <p className="dashboard-message">No sponsors match your search or filter. Try another name or status.</p>
+              ) : (
+                <>
+                  <p className="dashboard-sponsor-count" role="status">
+                    Showing {visibleSponsors.length} of {filteredSponsors.length} sponsors
+                  </p>
+                  <ul className="dashboard-sponsor-list">
+                    {visibleSponsors.map((sponsor) => (
+                      <li className="dashboard-sponsor-item" key={sponsor.sponsorId}>
+                        <div>
+                          <h3>{sponsor.companyName}</h3>
+                          <p className="dashboard-sponsor-status">
+                            {sponsor.availability === 'pending' ? 'Application pending'
+                              : sponsor.availability === 'sponsored' ? 'Your current sponsor'
+                                : sponsor.availability === 'approved' ? 'Application approved'
+                                  : sponsor.availability === 'cooldown' ? 'Reapply 30 days after your denial'
+                                    : 'Open for applications'}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => applyToSponsor(sponsor.sponsorId)}
+                          disabled={!sponsor.canApply || submittingSponsorId !== null}>
+                          {submittingSponsorId === sponsor.sponsorId ? 'Applying…' : 'Apply to sponsor'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {visibleSponsorCount < filteredSponsors.length && (
+                    <div className="dashboard-sponsor-more">
+                      <button type="button" onClick={() => setVisibleSponsorCount((count) => count + SPONSORS_PER_PAGE)}>
+                        Show more
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
         </section>
 
