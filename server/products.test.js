@@ -1,7 +1,33 @@
 const originalFetch = global.fetch;
+const originalId = process.env.EBAY_CLIENT_ID;
+const originalSecret = process.env.EBAY_CLIENT_SECRET;
 const products = require('./products');
+const ebay = require('./ebay-products');
 
-afterEach(() => { global.fetch = originalFetch; });
+beforeEach(() => {
+  delete process.env.EBAY_CLIENT_ID;
+  delete process.env.EBAY_CLIENT_SECRET;
+});
+afterEach(() => {
+  jest.restoreAllMocks();
+  global.fetch = originalFetch;
+  if (originalId === undefined) delete process.env.EBAY_CLIENT_ID;
+  else process.env.EBAY_CLIENT_ID = originalId;
+  if (originalSecret === undefined) delete process.env.EBAY_CLIENT_SECRET;
+  else process.env.EBAY_CLIENT_SECRET = originalSecret;
+});
+
+test('uses eBay search when server credentials are configured while retaining saved sample items', async () => {
+  process.env.EBAY_CLIENT_ID = 'test-client';
+  process.env.EBAY_CLIENT_SECRET = 'test-secret';
+  jest.spyOn(ebay, 'searchItems').mockResolvedValue([{ itemId: 'v1|12345|0' }]);
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 23, title: 'Mug', price: 10, stock: 1 }) });
+
+  expect(products.activeSource()).toBe('eBay');
+  expect(await products.searchItems('mug')).toEqual([{ itemId: 'v1|12345|0' }]);
+  expect(ebay.searchItems).toHaveBeenCalledWith('mug');
+  expect(await products.getItem('dummyjson:23')).toMatchObject({ itemId: 'dummyjson:23' });
+});
 
 test('searches DummyJSON without credentials and normalizes sample products', async () => {
   global.fetch = jest.fn().mockResolvedValue({

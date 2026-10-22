@@ -1,5 +1,6 @@
 const express = require('express');
 const products = require('./products');
+const SEARCH_RESULT_LIFETIME_MS = 15 * 60 * 1000;
 
 function money(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
@@ -15,9 +16,21 @@ function pointCost(price, pointValue) {
   return priceCents && pointCents ? Math.ceil(priceCents / pointCents) : null;
 }
 
+function itemSelectionError(item, itemId) {
+  if (item.itemId !== itemId || item.currency !== 'USD' || !money(item.price)) {
+    return { status: 400, message: 'This listing needs a valid USD price.' };
+  }
+  if (!item.fixedPrice) return { status: 400, message: 'Only fixed-price listings can be added.' };
+  if (!item.available) return { status: 409, message: 'This listing is no longer available.' };
+  if (item.mediaRating && !['G', 'PG'].includes(item.mediaRating.toUpperCase())) {
+    return { status: 400, message: 'Only G or PG rated media can be added.' };
+  }
+  return null;
+}
+
 function serialize(row, pointValue) {
   // Keep using the existing eBay-named columns so deployed catalogs need no data migration.
-  // New sample products are distinguished by their dummyjson: item ID prefix.
+  // Saved sample products are distinguished by their dummyjson: item ID prefix.
   const effectivePrice = row.price_override == null ? row.ebay_price : row.price_override;
   const source = row.ebay_item_id.startsWith('dummyjson:') ? 'DummyJSON' : 'eBay';
   return {
@@ -77,6 +90,7 @@ function createSponsorCatalogRouter(pool) {
       res.json({
         companyName: req.catalogSponsor.company_name,
         pointValue: String(req.catalogSponsor.point_value),
+        productSource: products.activeSource(),
         items: rows.map((row) => serialize(row, req.catalogSponsor.point_value)),
       });
     } catch (error) {
@@ -87,8 +101,15 @@ function createSponsorCatalogRouter(pool) {
   router.get('/search', async (req, res) => {
     const query = String(req.query.q || '').trim();
     if (query.length < 2 || query.length > 100) return res.status(400).json({ message: 'Enter 2–100 characters to search.' });
+    req.sessionData.catalogSearch = null;
     try {
       const items = await products.searchItems(query);
+      req.sessionData.catalogSearch = {
+        sponsorId: req.catalogSponsor.sponsor_id,
+        source: products.activeSource(),
+        searchedAt: Date.now(),
+        items: new Map(items.map((item) => [item.itemId, item])),
+      };
       res.json({ items });
     } catch (error) {
       handleError(res, error);
@@ -100,15 +121,16 @@ function createSponsorCatalogRouter(pool) {
     if (!itemId || itemId.length > 255) return res.status(400).json({ message: 'Select a valid listing.' });
     if (req.body?.familyFriendlyConfirmed !== true) return res.status(400).json({ message: 'Confirm this item is family-friendly before adding it.' });
     try {
-      const item = await products.getItem(itemId);
-      if (item.itemId !== itemId || item.currency !== 'USD' || !money(item.price)) {
-        return res.status(400).json({ message: 'This listing needs a valid USD price.' });
+      const search = req.sessionData.catalogSearch;
+      if (!search || search.sponsorId !== req.catalogSponsor.sponsor_id ||
+          search.source !== products.activeSource() ||
+          Date.now() - search.searchedAt > SEARCH_RESULT_LIFETIME_MS) {
+        return res.status(409).json({ message: 'Search again before adding this listing.' });
       }
-      if (!item.fixedPrice) return res.status(400).json({ message: 'Only fixed-price listings can be added.' });
-      if (!item.available) return res.status(409).json({ message: 'This listing is no longer available.' });
-      if (item.mediaRating && !['G', 'PG'].includes(item.mediaRating.toUpperCase())) {
-        return res.status(400).json({ message: 'Only G or PG rated media can be added.' });
-      }
+      const item = search.items.get(itemId);
+      if (!item) return res.status(409).json({ message: 'This listing was not in your latest search. Search again.' });
+      const issue = itemSelectionError(item, itemId);
+      if (issue) return res.status(issue.status).json({ message: issue.message });
       const sponsorId = req.catalogSponsor.sponsor_id;
       const [existing] = await pool.query(
         'SELECT id, active FROM SponsorCatalogItems WHERE sponsor_id = ? AND ebay_item_id = ? LIMIT 1',
@@ -168,8 +190,8 @@ function createSponsorCatalogRouter(pool) {
       if (!rows.length) return res.status(404).json({ message: 'Catalog item not found.' });
       let item;
       try {
-        if (!rows[0].ebay_item_id.startsWith('dummyjson:')) {
-          return res.status(409).json({ message: 'This legacy eBay item cannot be refreshed from DummyJSON. Remove it and choose a sample product instead.' });
+        if (!rows[0].ebay_item_id.startsWith('dummyjson:') && !rows[0].ebay_item_id.startsWith('v1|')) {
+          return res.status(409).json({ message: 'This older eBay item ID cannot be refreshed. Remove it and choose the listing again.' });
         }
         item = await products.getItem(rows[0].ebay_item_id);
       } catch (error) {
@@ -200,7 +222,7 @@ function createSponsorCatalogRouter(pool) {
           [id, sponsorId]
         );
       }
-      res.json({ message: available ? 'Sample product details refreshed.' : 'Product updated and marked unavailable.' });
+      res.json({ message: available ? 'Product details refreshed.' : 'Product updated and marked unavailable.' });
     } catch (error) {
       handleError(res, error);
     }

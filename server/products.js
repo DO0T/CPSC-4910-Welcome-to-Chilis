@@ -1,5 +1,10 @@
 const BASE_URL = 'https://dummyjson.com/products';
 const ITEM_PREFIX = 'dummyjson:';
+const ebay = require('./ebay-products');
+
+function activeSource() {
+  return process.env.EBAY_CLIENT_ID || process.env.EBAY_CLIENT_SECRET ? 'eBay' : 'DummyJSON';
+}
 
 class ProductError extends Error {
   constructor(message, status = 502) {
@@ -43,6 +48,7 @@ function normalizeProduct(product) {
 }
 
 async function searchItems(query) {
+  if (activeSource() === 'eBay') return ebay.searchItems(query);
   const params = new URLSearchParams({ q: query, limit: '20' });
   const data = await request(`/search?${params}`);
   if (!Array.isArray(data.products)) throw new ProductError('The product service returned invalid search results.');
@@ -50,6 +56,7 @@ async function searchItems(query) {
 }
 
 async function getItem(itemId) {
+  if (typeof itemId === 'string' && !itemId.startsWith(ITEM_PREFIX)) return ebay.getItem(itemId);
   if (!/^dummyjson:[1-9]\d*$/.test(itemId)) throw new ProductError('This is not a DummyJSON product.', 400);
   const id = Number(itemId.slice(ITEM_PREFIX.length));
   if (!Number.isSafeInteger(id)) throw new ProductError('Invalid sample product ID.', 400);
@@ -58,4 +65,4 @@ async function getItem(itemId) {
   return item;
 }
 
-module.exports = { searchItems, getItem, ProductError };
+module.exports = { searchItems, getItem, activeSource, ProductError };

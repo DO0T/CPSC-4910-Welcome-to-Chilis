@@ -39,6 +39,9 @@ function DriverDashboard() {
   const [profile, setProfile] = useState({ data: null, loading: true, error: '' });
   const [points, setPoints] = useState({ data: null, loading: true, error: '' });
   const [activity, setActivity] = useState({ data: [], loading: true, error: '' });
+  const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
+  const [submittingSponsorId, setSubmittingSponsorId] = useState(null);
+  const [applicationNotice, setApplicationNotice] = useState({ text: '', error: false });
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -51,6 +54,7 @@ function DriverDashboard() {
     const profileController = new AbortController();
     const pointsController = new AbortController();
     const activityController = new AbortController();
+    const sponsorsController = new AbortController();
 
     async function loadProfile() {
       try {
@@ -100,16 +104,73 @@ function DriverDashboard() {
       }
     }
 
+    async function loadSponsors() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/driver/applications/sponsors`, {
+          headers: authHeaders,
+          signal: sponsorsController.signal,
+        });
+        if (response.status === 401) {
+          sessionStorage.removeItem('authToken');
+          navigate('/login', { replace: true });
+          return;
+        }
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || 'Unable to load sponsors.');
+        setSponsors({ data: body, loading: false, error: '' });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setSponsors({ data: [], loading: false, error: err.message || 'Unable to load sponsors.' });
+        }
+      }
+    }
+
     loadProfile();
     loadPoints();
     loadActivity();
+    loadSponsors();
 
     return () => {
       profileController.abort();
       pointsController.abort();
       activityController.abort();
+      sponsorsController.abort();
     };
   }, [navigate]);
+
+  async function applyToSponsor(sponsorId) {
+    if (submittingSponsorId !== null) return;
+    setSubmittingSponsorId(sponsorId);
+    setApplicationNotice({ text: '', error: false });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/applications`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sponsorId }),
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to submit your application.');
+      setSponsors((current) => ({
+        ...current,
+        data: current.data.map((sponsor) => sponsor.sponsorId === sponsorId
+          ? { ...sponsor, availability: 'pending', canApply: false }
+          : sponsor),
+      }));
+      setApplicationNotice({ text: 'Application submitted. This sponsor can now review it.', error: false });
+    } catch (err) {
+      setApplicationNotice({ text: err.message || 'Unable to submit your application.', error: true });
+    } finally {
+      setSubmittingSponsorId(null);
+    }
+  }
 
   const firstName = profile.data?.name ? profile.data.name.split(' ')[0] : 'Driver';
 
@@ -164,6 +225,48 @@ function DriverDashboard() {
               </>
             )}
           </header>
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="driver-applications-heading">
+          <header className="dashboard-card-header">
+            <p className="dashboard-eyebrow">Sponsorships</p>
+            <h2 id="driver-applications-heading">Apply to a sponsor</h2>
+            <p className="dashboard-section-description">Choose an organization to request sponsorship. A sponsor must approve your application before you can join.</p>
+          </header>
+          {applicationNotice.text && (
+            <p className={`dashboard-application-notice ${applicationNotice.error ? 'dashboard-application-error' : ''}`}
+              role={applicationNotice.error ? 'alert' : 'status'}>
+              {applicationNotice.text}
+            </p>
+          )}
+          {sponsors.loading ? (
+            <p className="dashboard-message">Loading sponsors…</p>
+          ) : sponsors.error ? (
+            <p className="dashboard-message" role="alert">{sponsors.error}</p>
+          ) : sponsors.data.length === 0 ? (
+            <p className="dashboard-message">No sponsors are available yet.</p>
+          ) : (
+            <ul className="dashboard-sponsor-list">
+              {sponsors.data.map((sponsor) => (
+                <li className="dashboard-sponsor-item" key={sponsor.sponsorId}>
+                  <div>
+                    <h3>{sponsor.companyName}</h3>
+                    <p className="dashboard-sponsor-status">
+                      {sponsor.availability === 'pending' ? 'Application pending'
+                        : sponsor.availability === 'sponsored' ? 'Your current sponsor'
+                          : sponsor.availability === 'approved' ? 'Application approved'
+                            : sponsor.availability === 'cooldown' ? 'Reapply 30 days after your denial'
+                              : 'Open for applications'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => applyToSponsor(sponsor.sponsorId)}
+                    disabled={!sponsor.canApply || submittingSponsorId !== null}>
+                    {submittingSponsorId === sponsor.sponsorId ? 'Applying…' : 'Apply to sponsor'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="dashboard-card" aria-labelledby="activity-heading">

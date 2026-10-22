@@ -4,16 +4,19 @@ const request = require('supertest');
 jest.mock('./products', () => ({
   searchItems: jest.fn(),
   getItem: jest.fn(),
+  activeSource: jest.fn().mockReturnValue('DummyJSON'),
 }));
 
 const products = require('./products');
 const { createSponsorCatalogRouter, pointCost } = require('./sponsor-catalog');
 const pool = { query: jest.fn() };
+const sessionData = {};
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
   req.userId = Number(req.get('X-Test-User') || 12);
   req.userRole = req.get('X-Test-Role') || 'Sponsor';
+  req.sessionData = sessionData;
   next();
 });
 app.use('/api/sponsor/catalog', createSponsorCatalogRouter(pool));
@@ -22,6 +25,7 @@ const sponsor = { sponsor_id: 7, company_name: 'North Star', point_value: '0.01'
 const listing = { itemId: 'dummyjson:23', title: 'Travel mug', imageUrl: '', itemUrl: '', price: '19.95', currency: 'USD', mediaRating: null, available: true, fixedPrice: true };
 
 beforeEach(() => {
+  sessionData.catalogSearch = null;
   pool.query.mockReset();
   products.searchItems.mockReset();
   products.getItem.mockReset();
@@ -48,6 +52,7 @@ test('lists only active items for the linked sponsor and calculates override poi
   expect(response.statusCode).toBe(200);
   expect(response.body.items[0].pointCost).toBe(1000);
   expect(response.body.items[0]).toMatchObject({ source: 'DummyJSON', sourcePrice: '19.95' });
+  expect(response.body.productSource).toBe('DummyJSON');
   expect(pool.query.mock.calls[1][1]).toEqual([7]);
   expect(pool.query.mock.calls[1][0]).toContain('active = 1');
 });
@@ -57,23 +62,46 @@ test('searches only after resolving the sponsor and returns sample products', as
   const response = await request(app).get('/api/sponsor/catalog/search?q=mug');
   expect(response.statusCode).toBe(200);
   expect(response.body).toMatchObject({ items: [listing] });
+  expect(sessionData.catalogSearch.items.get(listing.itemId)).toEqual(listing);
+});
+
+test('requires a fresh search from the same sponsor before adding', async () => {
+  const body = { itemId: listing.itemId, familyFriendlyConfirmed: true };
+  const noSearch = await request(app).post('/api/sponsor/catalog').send(body);
+  expect(noSearch.statusCode).toBe(409);
+  sessionData.catalogSearch = { sponsorId: 99, source: 'DummyJSON', searchedAt: Date.now(), items: new Map([[listing.itemId, listing]]) };
+  const otherSponsor = await request(app).post('/api/sponsor/catalog').send(body);
+  expect(otherSponsor.statusCode).toBe(409);
+  sessionData.catalogSearch.sponsorId = sponsor.sponsor_id;
+  sessionData.catalogSearch.searchedAt = Date.now() - 16 * 60 * 1000;
+  const expired = await request(app).post('/api/sponsor/catalog').send(body);
+  expect(expired.statusCode).toBe(409);
+  expect(products.getItem).not.toHaveBeenCalled();
+  expect(pool.query).toHaveBeenCalledTimes(3);
 });
 
 test('requires family-friendly approval and rejects non-G/PG rated media', async () => {
   const missingApproval = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId });
   expect(missingApproval.statusCode).toBe(400);
   expect(products.getItem).not.toHaveBeenCalled();
-  products.getItem.mockResolvedValue({ ...listing, mediaRating: 'R' });
+  products.searchItems.mockResolvedValue([{ ...listing, mediaRating: 'R' }]);
+  await request(app).get('/api/sponsor/catalog/search?q=mug');
   const rated = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId, familyFriendlyConfirmed: true });
   expect(rated.statusCode).toBe(400);
-  expect(pool.query).toHaveBeenCalledTimes(2);
+  expect(pool.query).toHaveBeenCalledTimes(3);
 });
 
-test('adds a listing only for the linked sponsor and rejects duplicates', async () => {
+test('adds a searched listing without item details, ignores browser-supplied prices, and rejects duplicates', async () => {
+  products.searchItems.mockResolvedValue([listing]);
+  await request(app).get('/api/sponsor/catalog/search?q=mug');
+  pool.query.mockReset();
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[]]).mockResolvedValueOnce([{ insertId: 5 }]);
-  const added = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId, familyFriendlyConfirmed: true, sponsorId: 999 });
+  const added = await request(app).post('/api/sponsor/catalog').send({ itemId: listing.itemId, familyFriendlyConfirmed: true, sponsorId: 999, price: '0.01', title: 'Forged' });
   expect(added.statusCode).toBe(201);
+  expect(pool.query.mock.calls[2][1][0]).toBe(listing.title);
+  expect(pool.query.mock.calls[2][1][3]).toBe(listing.price);
   expect(pool.query.mock.calls[2][1].slice(-2)).toEqual([7, listing.itemId]);
+  expect(products.getItem).not.toHaveBeenCalled();
 
   pool.query.mockReset();
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ id: 5, active: 1 }]]);
@@ -115,12 +143,21 @@ test('keeps catalog data unchanged when DummyJSON fails', async () => {
   expect(pool.query).toHaveBeenCalledTimes(2);
 });
 
-test('keeps legacy eBay records visible but does not refresh them using DummyJSON', async () => {
+test('keeps legacy eBay records visible but does not refresh invalid older IDs', async () => {
   pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: 'demo|mug' }]]);
   const response = await request(app).post('/api/sponsor/catalog/5/refresh');
   expect(response.statusCode).toBe(409);
   expect(products.getItem).not.toHaveBeenCalled();
   expect(pool.query).toHaveBeenCalledTimes(2);
+});
+
+test('refreshes current eBay item IDs through the product provider', async () => {
+  pool.query.mockResolvedValueOnce([[sponsor]]).mockResolvedValueOnce([[{ ebay_item_id: 'v1|12345|0' }]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
+  products.getItem.mockResolvedValue({ ...listing, itemId: 'v1|12345|0' });
+  const response = await request(app).post('/api/sponsor/catalog/5/refresh');
+  expect(response.statusCode).toBe(200);
+  expect(products.getItem).toHaveBeenCalledWith('v1|12345|0');
+  expect(pool.query.mock.calls[2][0]).not.toContain('price_override');
 });
 
 test('soft-removes only the linked sponsor item', async () => {

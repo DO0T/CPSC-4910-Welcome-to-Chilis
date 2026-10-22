@@ -111,6 +111,12 @@ function SponsorCatalog() {
     }
   }
 
+  function chooseItem(item) {
+    setSelectedId(item.itemId);
+    setConfirmed(false);
+    setError('');
+  }
+
   async function act(id, path, options, success) {
     setBusyId(id);
     setError('');
@@ -148,6 +154,7 @@ function SponsorCatalog() {
   }
 
   const selectedItems = new Set(catalog.items.map((item) => item.itemId));
+  const usingEbay = catalog.productSource === 'eBay';
 
   return <main className="dashboard-page sponsor-catalog">
     <div className="dashboard-content">
@@ -159,7 +166,9 @@ function SponsorCatalog() {
         </nav>
       </header>
 
-      <p className="catalog-demo-note" role="status">This catalog uses sample products from DummyJSON. Prices are treated as USD for this prototype; these are not purchasable listings.</p>
+      <p className="catalog-demo-note" role="status">{usingEbay
+        ? 'Search eBay listings for catalog rewards. Prices and availability are saved from search results, not rechecked with eBay. Sponsors approve suitability; adding an item does not purchase it.'
+        : 'This catalog uses sample products from DummyJSON. Prices are treated as USD for this prototype; these are not purchasable listings.'}</p>
       {error && <p className="catalog-feedback catalog-error" role="alert">{error}</p>}
       {notice && <p className="catalog-feedback" role="status">{notice}</p>}
 
@@ -168,13 +177,13 @@ function SponsorCatalog() {
           <div><h2 id="catalog-items-heading">Your catalog</h2><p>Rewards selected for your company. Point costs use {dollars(catalog.pointValue)} per point.</p></div>
           <span className="catalog-count">{catalog.items.length} {catalog.items.length === 1 ? 'item' : 'items'}</span>
         </header>
-        {catalog.items.length === 0 ? <p className="dashboard-message">No items yet. Search sample products below to choose the first reward.</p> :
+        {catalog.items.length === 0 ? <p className="dashboard-message">No items yet. Search {usingEbay ? 'eBay listings' : 'sample products'} below to choose the first reward.</p> :
           <div className="catalog-list">
             {catalog.items.map((item) => <article className="catalog-item" key={item.id}>
               <ListingImage item={item} />
               <div className="catalog-item-body">
                 <h3>{item.title}</h3>
-                <p className="catalog-item-meta">{item.source === 'eBay' ? 'Legacy eBay item · saved details only' : item.available ? 'In sample stock' : 'Out of sample stock'}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
+                <p className="catalog-item-meta">{item.source === 'eBay' ? (item.available ? 'eBay listing' : 'eBay listing unavailable') : item.available ? 'In sample stock' : 'Out of sample stock'}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
                 <p className="catalog-price"><strong>{item.pointCost == null ? 'Point cost unavailable' : `${item.pointCost.toLocaleString()} pts`}</strong> <span>from {dollars(item.effectivePrice)}</span></p>
                 {item.priceOverride != null && <p className="catalog-item-meta">Saved source price: {dollars(item.sourcePrice)} · Sponsor override active</p>}
                 <form className="catalog-override" onSubmit={(event) => {
@@ -189,7 +198,7 @@ function SponsorCatalog() {
                   </div>
                 </form>
                 <div className="catalog-item-actions">
-                  {item.source === 'DummyJSON' && <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}/refresh`, { method: 'POST' }, 'Sample product details refreshed.')}>Refresh details</button>}
+                  {item.source === 'DummyJSON' && <button type="button" disabled={busyId === item.id} onClick={() => act(item.id, `/${item.id}/refresh`, { method: 'POST' }, 'Product details refreshed.')}>Refresh details</button>}
                   <button type="button" disabled={busyId === item.id} onClick={() => removeItem(item)}>Remove</button>
                   {item.itemUrl && <a href={item.itemUrl} target="_blank" rel="noopener noreferrer">{item.source === 'eBay' ? 'View on eBay' : 'View sample data'}</a>}
                 </div>
@@ -199,25 +208,25 @@ function SponsorCatalog() {
       </section>
 
       <section className="dashboard-card" aria-labelledby="catalog-search-heading">
-        <header className="dashboard-card-header"><h2 id="catalog-search-heading">Find items</h2><p>Search sample products and choose rewards for your drivers.</p></header>
+        <header className="dashboard-card-header"><h2 id="catalog-search-heading">Find items</h2><p>Search {usingEbay ? 'eBay listings' : 'sample products'} and choose rewards for your drivers.</p></header>
         <div className="catalog-search-content">
           <form className="catalog-search-form" onSubmit={search}>
-            <label htmlFor="catalog-query">Search sample products</label>
-            <div><input id="catalog-query" type="search" minLength="2" maxLength="100" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try phone" /><button type="submit" disabled={searching}>{searching ? 'Searching…' : 'Search'}</button></div>
+            <label htmlFor="catalog-query">Search {usingEbay ? 'eBay listings' : 'sample products'}</label>
+            <div><input id="catalog-query" type="search" minLength="2" maxLength="100" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try phone" /><button type="submit" disabled={searching || Boolean(busyId)}>{searching ? 'Searching…' : 'Search'}</button></div>
           </form>
           {results && (results.length ? <div className="catalog-results">
             {results.map((item) => <article className="catalog-result" key={item.itemId}>
               <ListingImage item={item} />
               <div><h3>{item.title}</h3><p>{dollars(item.price)}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
-                {!item.available ? <span className="catalog-item-meta">Out of sample stock</span> : selectedItems.has(item.itemId) ? <span className="catalog-item-meta">Already in your catalog</span> :
-                  <button type="button" onClick={() => { setSelectedId(item.itemId); setConfirmed(false); }}>Choose item</button>}
+                {!item.available ? <span className="catalog-item-meta">Listing unavailable</span> : selectedItems.has(item.itemId) ? <span className="catalog-item-meta">Already in your catalog</span> :
+                  <button type="button" disabled={Boolean(busyId)} onClick={() => chooseItem(item)}>Choose item</button>}
                 {selectedId === item.itemId && !selectedItems.has(item.itemId) && <div className="catalog-confirm">
                   <label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> I confirm this item is family-friendly. This is my approval, not an automated rating check.</label>
                   <button type="button" disabled={!confirmed || busyId === item.itemId} onClick={() => addItem(item)}>{busyId === item.itemId ? 'Adding…' : 'Add to catalog'}</button>
                 </div>}
               </div>
             </article>)}
-          </div> : <p className="catalog-empty-search">No sample products found. Try a different search.</p>)}
+          </div> : <p className="catalog-empty-search">No {usingEbay ? 'eBay listings' : 'sample products'} found. Try a different search.</p>)}
         </div>
       </section>
     </div>
