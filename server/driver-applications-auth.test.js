@@ -13,3 +13,9 @@ test('submitting an application requires a login session', async () => {
   expect(response.statusCode).toBe(401);
   expect(pool.getConnection).not.toHaveBeenCalled();
 });
+
+test('listing sponsor applications requires a login session', async () => {
+  const response = await request(app).get('/api/sponsor/applications');
+  expect(response.statusCode).toBe(401);
+  expect(pool.query).not.toHaveBeenCalled();
+});
