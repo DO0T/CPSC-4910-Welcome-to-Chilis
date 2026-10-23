@@ -102,6 +102,16 @@
   color: #a34444;
 }
 
+.sponsor-application-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #29485f;
+  background: #e8f1ed;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 @media (max-width: 600px) {
   .sponsor-stats {
     grid-template-columns: 1fr;

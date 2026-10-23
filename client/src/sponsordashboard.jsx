@@ -16,6 +16,7 @@ function formatDate(value) {
 function SponsorDashboard() {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState({ data: null, loading: true, error: '' });
+  const [applications, setApplications] = useState({ data: [], loading: true, error: '' });
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -56,6 +57,42 @@ function SponsorDashboard() {
     }
 
     loadDashboard();
+    return () => controller.abort();
+  }, [navigate]);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('authToken');
+    if (!token) return undefined;
+
+    const controller = new AbortController();
+
+    async function loadApplications() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/sponsor/applications`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (response.status === 401) {
+          sessionStorage.removeItem('authToken');
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || 'Unable to load applications.');
+        if (!Array.isArray(body.applications)) throw new Error('Unable to load applications.');
+        if (!controller.signal.aborted) {
+          setApplications({ data: body.applications, loading: false, error: '' });
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError' && !controller.signal.aborted) {
+          setApplications({ data: [], loading: false, error: error.message || 'Unable to load applications.' });
+        }
+      }
+    }
+
+    loadApplications();
     return () => controller.abort();
   }, [navigate]);
 
@@ -114,11 +151,27 @@ function SponsorDashboard() {
         <section className="dashboard-card" aria-labelledby="sponsor-applications-heading">
           <header className="dashboard-card-header">
             <p className="dashboard-eyebrow">Driver applications</p>
-            <h2 id="sponsor-applications-heading" className="sponsor-section-title">Applications</h2>
+            <h2 id="sponsor-applications-heading" className="sponsor-section-title">Pending applications</h2>
           </header>
-          <p className="dashboard-message">
-            Application tracking is not available yet. Drivers need a way to apply before applications can appear here.
-          </p>
+          {applications.loading ? (
+            <p className="dashboard-message" role="status">Loading applications…</p>
+          ) : applications.error ? (
+            <p className="dashboard-message" role="alert">{applications.error} Try refreshing the page.</p>
+          ) : applications.data.length === 0 ? (
+            <p className="dashboard-message">No pending applications right now.</p>
+          ) : (
+            <ul className="sponsor-list">
+              {applications.data.map((application) => (
+                <li className="sponsor-list-item" key={application.applicationId}>
+                  <div>
+                    <span className="sponsor-list-title">{application.driverName}</span>
+                    <span className="sponsor-list-detail">Applied {formatDate(application.appliedAt)}</span>
+                  </div>
+                  <span className="sponsor-application-status">Pending</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="dashboard-card" aria-labelledby="sponsor-activity-heading">
