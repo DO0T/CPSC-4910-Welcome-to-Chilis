@@ -273,24 +273,52 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
+async function recordFailedLogin(email, details) {
+  await createAuditLog(email, "Login Attempt", "Failure", details);
+
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS failure_count
+     FROM AuditLog
+     WHERE username = ?
+       AND event_category = 'Login Attempt'
+       AND status = 'Failure'
+       AND event_date >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE;`,
+    [email]
+  );
+
+  if (Number(rows[0]?.failure_count || 0) <= 20) return;
+
+  const message = `More than 20 failed login attempts in one minute for: ${email}`;
+  await pool.query(
+    `INSERT INTO UserAlerts (user_id, alert_type, message)
+     SELECT admin.user_id, 'SECURITY ALERT', ?
+     FROM Users AS admin
+     WHERE admin.role = 'Admin'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM UserAlerts
+         WHERE alert_type = 'SECURITY ALERT'
+           AND message = ?
+           AND created_at >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+       );`,
+    [message, message]
+  );
+}
+
 app.post("/api/login", async (req, res) => {
   try {
     const { username, password } = req.body;
+    const email = typeof username === "string" ? username.trim().toLowerCase() : "";
 
-    if (!username || !password) {
+    if (!email || !password) {
       return res.status(400).json({ message: "Username and password are required" });
     }
 
     const query = "SELECT * FROM Users WHERE username = ?;";
-    const [rows] = await pool.query(query, [username]);
+    const [rows] = await pool.query(query, [email]);
 
     if (rows.length === 0) {
-      await createAuditLog(
-        username,
-        "Login Attempt",
-        "Failure",
-        "Invalid username or password"
-      );
+      await recordFailedLogin(email, "Invalid username or password");
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
@@ -299,12 +327,7 @@ app.post("/api/login", async (req, res) => {
 
     if (match) {
       if (!userRecord.role || userRecord.role === "None") {
-        await createAuditLog(
-          username,
-          "Login Attempt",
-          "Failure",
-          "Account has no assigned role"
-        );
+        await recordFailedLogin(email, "Account has no assigned role");
         return res.status(403).json({
           message:
             "Your account currently has no active role assigned. Please contact an administrator.",
@@ -313,7 +336,7 @@ app.post("/api/login", async (req, res) => {
 
       await pool.query(
         "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Success', 'User logged in successfully');",
-        [username]
+        [email]
       );
       const sessionToken = crypto.randomBytes(32).toString("hex");
       sessions.set(sessionToken, {
@@ -331,10 +354,7 @@ app.post("/api/login", async (req, res) => {
         profilePictureUrl: userRecord.profile_picture_url
       });
     } else {
-      await pool.query(
-        "INSERT INTO AuditLog (username, event_category, status, details) VALUES (?, 'Login Attempt', 'Failure', 'Invalid username or password');",
-        [username]
-      );
+      await recordFailedLogin(email, "Invalid username or password");
       return res.status(401).json({ message: "Invalid username or password" });
     }
   } catch (error) {
