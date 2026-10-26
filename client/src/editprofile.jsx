@@ -272,7 +272,7 @@ function EditProfile() {
                     />
                     Receive alerts when points are added or removed
                   </label>
-                  <p>Turn this off to stop future point change alerts.</p>
+                  <p>NOTICE: If dropped by a sponsor organization, notification will be delivered via email and can't be disabled.</p>
                 </div>
               </section>
             )}
