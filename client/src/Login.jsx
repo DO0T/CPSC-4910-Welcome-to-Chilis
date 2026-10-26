@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
@@ -12,9 +12,32 @@ function Login() {
 
   const navigate = useNavigate();
 
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/site-notifications/active`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (mounted) setNotifications(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Could not load login notices:', error);
+      }
+    };
+
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
@@ -41,6 +64,14 @@ function Login() {
 
   return (
     <main className="login-page">
+      <div className="login-site-alerts" aria-label="Site notifications">
+        {notifications.map((notice) => (
+          <div className="login-site-alert" role="status" key={notice.id}>
+            {notice.message}
+          </div>
+        ))}
+      </div>
+
       <section className="login-card" aria-labelledby="login-title">
         <h1 id="login-title">Welcome back</h1>
         <p>Sign in to your account.</p>
@@ -70,10 +101,10 @@ function Login() {
             autoComplete="current-password"
             required
           />
-          
+
           {/* Button toggles the showPassword boolean state */}
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? "Hide" : "Show"} Password

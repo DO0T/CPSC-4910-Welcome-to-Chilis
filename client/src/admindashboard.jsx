@@ -352,9 +352,8 @@ function AdminDashboard() {
 
       setFeedback({
         error: '',
-        success: `${selectedDriver?.name || 'Driver'}'s points updated by ${
-          pointForm.pointChange
-        }. New balance: ${data.total_points} pts.`,
+        success: `${selectedDriver?.name || 'Driver'}'s points updated by ${pointForm.pointChange
+          }. New balance: ${data.total_points} pts.`,
       });
       setPointForm({ driverId: '', pointChange: '', reason: '' });
       await loadAdminData();
@@ -553,6 +552,13 @@ function AdminDashboard() {
             </p>
           </div>
           <nav className="admin-top-actions" aria-label="Admin navigation">
+            <button
+              type="button"
+              className="admin-btn-secondary"
+              onClick={() => navigate('/admin-notifications')}
+            >
+              Login Page Notices
+            </button>
             <button
               type="button"
               className="admin-btn-secondary"
@@ -765,14 +771,14 @@ function AdminDashboard() {
                                   </button>
                                   {(user.role === 'Driver' ||
                                     user.role === 'Sponsor') && (
-                                    <button
-                                      type="button"
-                                      className="admin-btn-small admin-btn-outline"
-                                      onClick={() => handleViewAsUser(user.id)}
-                                    >
-                                      View As {user.role}
-                                    </button>
-                                  )}
+                                      <button
+                                        type="button"
+                                        className="admin-btn-small admin-btn-outline"
+                                        onClick={() => handleViewAsUser(user.id)}
+                                      >
+                                        View As {user.role}
+                                      </button>
+                                    )}
                                   {user.role !== 'None' && (
                                     <button
                                       type="button"
@@ -859,29 +865,29 @@ function AdminDashboard() {
 
                       {(editForm.role === 'Sponsor' ||
                         editForm.role === 'Driver') && (
-                        <div className="admin-field">
-                          <label htmlFor="edit-sponsor">
-                            Affiliated Sponsor Organization
-                          </label>
-                          <select
-                            id="edit-sponsor"
-                            value={editForm.sponsorId}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                sponsorId: e.target.value,
-                              })
-                            }
-                          >
-                            <option value="">-- Unassigned --</option>
-                            {sponsors.map((sp) => (
-                              <option key={sp.id} value={sp.id}>
-                                {sp.companyName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                          <div className="admin-field">
+                            <label htmlFor="edit-sponsor">
+                              Affiliated Sponsor Organization
+                            </label>
+                            <select
+                              id="edit-sponsor"
+                              value={editForm.sponsorId}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  sponsorId: e.target.value,
+                                })
+                              }
+                            >
+                              <option value="">-- Unassigned --</option>
+                              {sponsors.map((sp) => (
+                                <option key={sp.id} value={sp.id}>
+                                  {sp.companyName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                       <div className="admin-field">
                         <label htmlFor="edit-pic">Profile Picture URL</label>
@@ -1032,33 +1038,33 @@ function AdminDashboard() {
 
                     {(newUserForm.role === 'Sponsor' ||
                       newUserForm.role === 'Driver') && (
-                      <div className="admin-field">
-                        <label htmlFor="new-user-sponsor">
-                          Sponsor Organization
-                        </label>
-                        <select
-                          id="new-user-sponsor"
-                          value={newUserForm.sponsorId}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              sponsorId: e.target.value,
-                            })
-                          }
-                        >
-                          <option value="">
-                            {newUserForm.role === 'Sponsor'
-                              ? '-- Create New Organization Below --'
-                              : '-- Unassigned --'}
-                          </option>
-                          {sponsors.map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.companyName}
+                        <div className="admin-field">
+                          <label htmlFor="new-user-sponsor">
+                            Sponsor Organization
+                          </label>
+                          <select
+                            id="new-user-sponsor"
+                            value={newUserForm.sponsorId}
+                            onChange={(e) =>
+                              setNewUserForm({
+                                ...newUserForm,
+                                sponsorId: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="">
+                              {newUserForm.role === 'Sponsor'
+                                ? '-- Create New Organization Below --'
+                                : '-- Unassigned --'}
                             </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                            {sponsors.map((sp) => (
+                              <option key={sp.id} value={sp.id}>
+                                {sp.companyName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                     {newUserForm.role === 'Sponsor' && !newUserForm.sponsorId && (
                       <div className="admin-field">

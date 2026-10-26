@@ -1,0 +1,75 @@
+.site-notices-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 36px 20px;
+  background: #f2f7f5;
+  color: #29485f;
+  text-align: left;
+}
+
+.site-notices-content {
+  width: min(100%, 800px);
+  margin: 0 auto;
+}
+
+.site-notices-form,
+.site-notices-list li {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid #e8efec;
+  border-radius: 14px;
+  background: white;
+}
+
+.site-notices-form input,
+.site-notices-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd9d7;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.site-notices-form button,
+.site-notices-content > button,
+.site-notices-list button {
+  width: fit-content;
+  padding: 9px 16px;
+  border: 1px solid #29485f;
+  border-radius: 999px;
+  background: #29485f;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+.site-notices-list {
+  padding: 0;
+  list-style: none;
+}
+
+.site-notices-list li p { margin: 0; }
+.site-notices-list li small { color: #55768d; }
+.site-notices-error { color: #9e2525; }
+.site-notices-success { color: #1f5c37; }
+
+New file: client/src/Login.css
+
+.login-site-alerts {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  text-align: center;
+}
+
+.login-site-alert {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 20px;
+  background: #d62828;
+  color: #ffff;
+  font-weight: 700;
+}

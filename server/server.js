@@ -558,7 +558,7 @@ app.put("/api/profile", requireLogin, async (req, res) => {
 
     return res.json({
       message: "Profile updated successfully",
-      profile: { name: cleanName, email: cleanEmail, profilePictureUrl: cleanPictureUrl || null, pointAlertsEnabled,}
+      profile: { name: cleanName, email: cleanEmail, profilePictureUrl: cleanPictureUrl || null, pointAlertsEnabled, }
     });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -656,7 +656,7 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
       `,
       [driver_id, effectiveSponsorId || null, numericChange, String(reason).trim()]
     );
-    
+
 
     if (Number(driverRows[0].point_alerts_enabled) === 1) {
       const pointsAlertMessage = numericChange > 0
@@ -1701,6 +1701,122 @@ app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res)
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+app.get("/api/site-notifications/active", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT notification_id AS id, message
+      FROM SiteNotifications
+      WHERE starts_at <= UTC_TIMESTAMP()
+        AND ends_at > UTC_TIMESTAMP()
+      ORDER BY starts_at ASC;
+    `);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Fetch active site notifications error:", error);
+    res.status(500).json({ message: "Could not load site notifications" });
+  }
+});
+
+app.get(
+  "/api/admin/site-notifications",
+  requireLogin,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT
+          notification_id AS id,
+          message,
+          DATE_FORMAT(starts_at, '%Y-%m-%dT%H:%i:%sZ') AS startsAt,
+          DATE_FORMAT(ends_at, '%Y-%m-%dT%H:%i:%sZ') AS endsAt
+        FROM SiteNotifications
+        ORDER BY starts_at DESC;
+      `);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Fetch admin site notifications error:", error);
+      res.status(500).json({ message: "Could not load notifications" });
+    }
+  }
+);
+
+app.post(
+  "/api/admin/site-notifications",
+  requireLogin,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { message, startsAt, endsAt } = req.body || {};
+      const cleanMessage = String(message || "").trim();
+      const start = new Date(startsAt);
+      const end = new Date(endsAt);
+
+      if (!cleanMessage || cleanMessage.length > 500) {
+        return res.status(400).json({
+          message: "Enter a message of 1 to 500 characters",
+        });
+      }
+
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end <= start
+      ) {
+        return res.status(400).json({
+          message: "Choose a valid start and end time",
+        });
+      }
+
+      const toMysqlUtc = (date) =>
+        date.toISOString().slice(0, 19).replace("T", " ");
+
+      const adminId = req.sessionData.originalAdminId || req.userId;
+
+      await pool.query(
+        `INSERT INTO SiteNotifications
+          (message, starts_at, ends_at, created_by)
+         VALUES (?, ?, ?, ?);`,
+        [cleanMessage, toMysqlUtc(start), toMysqlUtc(end), adminId]
+      );
+
+      res.status(201).json({ message: "Login page notice scheduled" });
+    } catch (error) {
+      console.error("Create site notification error:", error);
+      res.status(500).json({ message: "Could not schedule notification" });
+    }
+  }
+);
+
+app.delete(
+  "/api/admin/site-notifications/:id",
+  requireLogin,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id < 1) {
+        return res.status(400).json({ message: "Invalid notification ID" });
+      }
+
+      const [result] = await pool.query(
+        "DELETE FROM SiteNotifications WHERE notification_id = ?;",
+        [id]
+      );
+
+      if (!result.affectedRows) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      res.json({ message: "Notification deleted" });
+    } catch (error) {
+      console.error("Delete site notification error:", error);
+      res.status(500).json({ message: "Could not delete notification" });
+    }
+  }
+);
 
 // --- SERVER STARTUP ---
 if (require.main === module) {
