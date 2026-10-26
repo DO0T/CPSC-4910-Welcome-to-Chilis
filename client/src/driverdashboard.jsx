@@ -43,6 +43,43 @@ function formatPoints(points) {
   return `${sign}${points} pts`;
 }
 
+function formatApplicationDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+}
+
+function applicationDateLabel(sponsor) {
+  const decided = formatApplicationDate(sponsor.decidedAt);
+  if (decided) return `Updated ${decided}`;
+  const applied = formatApplicationDate(sponsor.appliedAt);
+  return applied ? `Applied ${applied}` : 'Application submitted';
+}
+
+function applicationNextStep(sponsor) {
+  if (sponsor.applicationStatus === 'PENDING') return 'Waiting for this sponsor to review your request.';
+  if (sponsor.applicationStatus === 'APPROVED') return 'This sponsor approved your application.';
+  if (sponsor.canApply) return 'You can apply again now.';
+  const reapplyDate = formatApplicationDate(sponsor.canReapplyAt);
+  return reapplyDate ? `You can reapply on ${reapplyDate}.` : 'You can reapply 30 days after the decision.';
+}
+
+async function requestSponsors(token, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/driver/applications/sponsors`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  });
+  if (response.status === 401) {
+    const error = new Error('Please log in to continue.');
+    error.status = 401;
+    throw error;
+  }
+  const body = await response.json();
+  if (!response.ok || !Array.isArray(body)) throw new Error(body?.message || 'Unable to load sponsors.');
+  return body;
+}
+
 function DriverDashboard() {
   const navigate = useNavigate();
 
@@ -50,6 +87,9 @@ function DriverDashboard() {
   const [points, setPoints] = useState({ data: null, loading: true, error: '' });
   const [activity, setActivity] = useState({ data: [], loading: true, error: '' });
   const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
+  const [checkingApplications, setCheckingApplications] = useState(false);
+  const [applicationCheckError, setApplicationCheckError] = useState('');
+  const [statusActionNotice, setStatusActionNotice] = useState({ text: '', error: false });
   const [submittingSponsorId, setSubmittingSponsorId] = useState(null);
   const [applicationNotice, setApplicationNotice] = useState({ text: '', error: false });
   const [sponsorSearch, setSponsorSearch] = useState('');
@@ -119,19 +159,14 @@ function DriverDashboard() {
 
     async function loadSponsors() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/driver/applications/sponsors`, {
-          headers: authHeaders,
-          signal: sponsorsController.signal,
-        });
-        if (response.status === 401) {
+        const body = await requestSponsors(token, sponsorsController.signal);
+        setSponsors({ data: body, loading: false, error: '' });
+      } catch (err) {
+        if (err.status === 401) {
           sessionStorage.removeItem('authToken');
           navigate('/login', { replace: true });
           return;
         }
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Unable to load sponsors.');
-        setSponsors({ data: body, loading: false, error: '' });
-      } catch (err) {
         if (err.name !== 'AbortError') {
           setSponsors({ data: [], loading: false, error: err.message || 'Unable to load sponsors.' });
         }
@@ -151,10 +186,31 @@ function DriverDashboard() {
     };
   }, [navigate]);
 
-  async function applyToSponsor(sponsorId) {
+  async function checkApplicationStatus() {
+    if (checkingApplications || sponsors.loading) return;
+    setCheckingApplications(true);
+    setApplicationCheckError('');
+    try {
+      const body = await requestSponsors(sessionStorage.getItem('authToken'));
+      setSponsors({ data: body, loading: false, error: '' });
+    } catch (err) {
+      if (err.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      setApplicationCheckError(err.message || 'Unable to check application status.');
+    } finally {
+      setCheckingApplications(false);
+    }
+  }
+
+  async function applyToSponsor(sponsorId, source = 'directory') {
     if (submittingSponsorId !== null) return;
     setSubmittingSponsorId(sponsorId);
     setApplicationNotice({ text: '', error: false });
+    setStatusActionNotice({ text: '', error: false });
+    const showResult = source === 'status' ? setStatusActionNotice : setApplicationNotice;
     try {
       const response = await fetch(`${API_BASE_URL}/api/driver/applications`, {
         method: 'POST',
@@ -174,12 +230,14 @@ function DriverDashboard() {
       setSponsors((current) => ({
         ...current,
         data: current.data.map((sponsor) => sponsor.sponsorId === sponsorId
-          ? { ...sponsor, availability: 'pending', canApply: false }
+          ? { ...sponsor, availability: 'pending', canApply: false,
+            applicationStatus: 'PENDING', appliedAt: new Date().toISOString(),
+            decidedAt: null, canReapplyAt: null }
           : sponsor),
       }));
-      setApplicationNotice({ text: 'Application submitted. This sponsor can now review it.', error: false });
+      showResult({ text: 'Application submitted. This sponsor can now review it.', error: false });
     } catch (err) {
-      setApplicationNotice({ text: err.message || 'Unable to submit your application.', error: true });
+      showResult({ text: err.message || 'Unable to submit your application.', error: true });
     } finally {
       setSubmittingSponsorId(null);
     }
@@ -210,6 +268,10 @@ function DriverDashboard() {
     (sponsorFilter === 'all' || sponsor.availability === sponsorFilter)
   );
   const visibleSponsors = filteredSponsors.slice(0, visibleSponsorCount);
+  const trackedApplications = sponsors.data
+    .filter((sponsor) => ['PENDING', 'APPROVED', 'DENIED'].includes(sponsor.applicationStatus))
+    .sort((a, b) => new Date(b.appliedAt || 0).getTime() - new Date(a.appliedAt || 0).getTime());
+  const pendingApplicationCount = trackedApplications.filter((sponsor) => sponsor.applicationStatus === 'PENDING').length;
 
   return (
     <main className="dashboard-page">
@@ -226,6 +288,63 @@ function DriverDashboard() {
             <LogoutButton />
           </nav>
         </header>
+
+        <section className="dashboard-card driver-applications-card" aria-labelledby="application-status-heading">
+          <header className="dashboard-card-header driver-applications-header">
+            <div>
+              <p className="dashboard-eyebrow">Sponsorship requests</p>
+              <h2 id="application-status-heading">Your applications</h2>
+              <p className="dashboard-section-description">See where each request stands without searching the sponsor list.</p>
+            </div>
+            <button type="button" className="driver-check-status" onClick={checkApplicationStatus}
+              disabled={checkingApplications || sponsors.loading}>
+              {checkingApplications ? 'Checking…' : 'Check for updates'}
+            </button>
+          </header>
+          {applicationCheckError && <p className="dashboard-application-notice dashboard-application-error" role="alert">{applicationCheckError}</p>}
+          {statusActionNotice.text && (
+            <p className={`dashboard-application-notice ${statusActionNotice.error ? 'dashboard-application-error' : ''}`}
+              role={statusActionNotice.error ? 'alert' : 'status'}>{statusActionNotice.text}</p>
+          )}
+          {sponsors.loading ? (
+            <p className="dashboard-message" role="status">Loading application status…</p>
+          ) : sponsors.error ? (
+            <p className="dashboard-message" role="alert">{sponsors.error}</p>
+          ) : trackedApplications.length === 0 ? (
+            <p className="dashboard-message">No applications yet. Browse sponsors below to get started.</p>
+          ) : (
+            <>
+              <p className="driver-application-summary-count">
+                {pendingApplicationCount === 0 ? 'No requests awaiting review'
+                  : `${pendingApplicationCount} request${pendingApplicationCount === 1 ? '' : 's'} awaiting review`}
+              </p>
+              <ul className="driver-application-status-list">
+                {trackedApplications.map((sponsor) => (
+                  <li className="driver-application-status-item" key={sponsor.sponsorId}>
+                    <div className="driver-application-status-top">
+                      <div>
+                        <h3>{sponsor.companyName}</h3>
+                        <p>{applicationDateLabel(sponsor)}</p>
+                      </div>
+                      <span className={`driver-application-badge driver-application-badge-${sponsor.applicationStatus.toLowerCase()}`}>
+                        {sponsor.applicationStatus === 'PENDING' ? 'Pending review'
+                          : sponsor.applicationStatus === 'APPROVED' ? 'Approved' : 'Denied'}
+                      </span>
+                    </div>
+                    <p className="driver-application-next-step">{applicationNextStep(sponsor)}</p>
+                    {sponsor.applicationStatus === 'DENIED' && sponsor.canApply && (
+                      <button type="button" className="driver-reapply-button"
+                        disabled={submittingSponsorId !== null}
+                        onClick={() => applyToSponsor(sponsor.sponsorId, 'status')}>
+                        {submittingSponsorId === sponsor.sponsorId ? 'Applying…' : `Reapply to ${sponsor.companyName}`}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
 
         <section className="dashboard-card" aria-labelledby="points-heading">
           <header className="dashboard-card-header">

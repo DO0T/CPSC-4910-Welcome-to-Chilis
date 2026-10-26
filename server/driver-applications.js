@@ -18,7 +18,8 @@ function createDriverApplicationsRouter(pool) {
       }
 
       const [sponsors] = await pool.query(
-        `SELECT s.sponsor_id, s.company_name, a.status,
+        `SELECT s.sponsor_id, s.company_name, a.status, a.applied_at, a.decided_at,
+                DATE_ADD(a.decided_at, INTERVAL 30 DAY) AS can_reapply_at,
                 a.decided_at <= NOW() - INTERVAL 30 DAY AS cooldown_complete
          FROM Sponsors s
          LEFT JOIN DriverApplications a ON a.application_id = (
@@ -43,6 +44,10 @@ function createDriverApplicationsRouter(pool) {
           companyName: sponsor.company_name,
           availability,
           canApply: availability === 'available',
+          applicationStatus: sponsor.status || null,
+          appliedAt: sponsor.applied_at || null,
+          decidedAt: sponsor.decided_at || null,
+          canReapplyAt: sponsor.status === 'DENIED' ? sponsor.can_reapply_at : null,
         };
       }));
     } catch (error) {

@@ -734,7 +734,6 @@ app.get("/api/driver/points-history", requireLogin, async (req, res) => {
 });
 
 // Sponsor dashboard data comes only from the sponsor linked to this session.
-// Driver applications are not included because the schema has no application records yet.
 app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
   try {
     const [accounts] = await pool.query(
@@ -773,8 +772,11 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
     const [driversResult, pointsResult, activityResult] =
       await Promise.allSettled([
         pool.query(
-          "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
-          [sponsorId]
+          "SELECT COUNT(*) AS sponsored_drivers FROM (" +
+          "SELECT user_id AS driver_id FROM Drivers WHERE sponsor_id = ? " +
+          "UNION SELECT driver_id FROM DriverApplications WHERE sponsor_id = ? AND status = 'APPROVED'" +
+          ") AS sponsor_drivers;",
+          [sponsorId, sponsorId]
         ),
         pool.query(
           "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
