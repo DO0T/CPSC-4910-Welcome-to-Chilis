@@ -91,6 +91,12 @@ function AdminDashboard() {
     productDescription: '',
   });
 
+  // Bulk Upload state for Admins
+  const [bulkFileName, setBulkFileName] = useState('');
+  const [bulkFileContent, setBulkFileContent] = useState('');
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [bulkUploadResult, setBulkUploadResult] = useState(null);
+
   const getToken = () => sessionStorage.getItem('authToken');
 
   const clearFeedback = () => setFeedback({ error: '', success: '' });
@@ -352,9 +358,8 @@ function AdminDashboard() {
 
       setFeedback({
         error: '',
-        success: `${selectedDriver?.name || 'Driver'}'s points updated by ${
-          pointForm.pointChange
-        }. New balance: ${data.total_points} pts.`,
+        success: `${selectedDriver?.name || 'Driver'}'s points updated by ${pointForm.pointChange
+          }. New balance: ${data.total_points} pts.`,
       });
       setPointForm({ driverId: '', pointChange: '', reason: '' });
       await loadAdminData();
@@ -524,6 +529,63 @@ function AdminDashboard() {
     }
   };
 
+  // --- Admin Bulk Upload Handlers ---
+  const handleAdminBulkFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    clearFeedback();
+    setBulkUploadResult(null);
+    if (!file) {
+      setBulkFileName('');
+      setBulkFileContent('');
+      return;
+    }
+    setBulkFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setBulkFileContent(String(ev.target?.result || ''));
+    };
+    reader.onerror = () => {
+      setFeedback({ error: 'Could not read the selected file.', success: '' });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAdminBulkSubmit = async (e) => {
+    e.preventDefault();
+    clearFeedback();
+    setBulkUploadResult(null);
+
+    if (!bulkFileContent.trim()) {
+      setFeedback({
+        error: 'Please select a pipe-delimited (.txt) file or paste lines to upload.',
+        success: '',
+      });
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bulk-upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ fileContent: bulkFileContent }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Bulk upload failed');
+
+      setBulkUploadResult(data);
+      setFeedback({ error: '', success: data.message });
+      await loadAdminData();
+    } catch (error) {
+      setFeedback({ error: error.message, success: '' });
+    } finally {
+      setIsBulkUploading(false);
+    }
+  };
+
   // Filtered users list
   const filteredUsers = users.filter((u) => {
     const matchesRole = roleFilter === 'All' || u.role === roleFilter;
@@ -553,6 +615,13 @@ function AdminDashboard() {
             </p>
           </div>
           <nav className="admin-top-actions" aria-label="Admin navigation">
+            <button
+              type="button"
+              className="admin-btn-secondary"
+              onClick={() => navigate('/admin-notifications')}
+            >
+              Login Page Notices
+            </button>
             <button
               type="button"
               className="admin-btn-secondary"
@@ -633,6 +702,15 @@ function AdminDashboard() {
             onClick={() => setActiveTab('operations')}
           >
             Driver &amp; Sponsor Operations
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'bulk'}
+            className={`admin-tab ${activeTab === 'bulk' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('bulk')}
+          >
+            Bulk Load (Pipe File)
           </button>
           <button
             type="button"
@@ -765,14 +843,14 @@ function AdminDashboard() {
                                   </button>
                                   {(user.role === 'Driver' ||
                                     user.role === 'Sponsor') && (
-                                    <button
-                                      type="button"
-                                      className="admin-btn-small admin-btn-outline"
-                                      onClick={() => handleViewAsUser(user.id)}
-                                    >
-                                      View As {user.role}
-                                    </button>
-                                  )}
+                                      <button
+                                        type="button"
+                                        className="admin-btn-small admin-btn-outline"
+                                        onClick={() => handleViewAsUser(user.id)}
+                                      >
+                                        View As {user.role}
+                                      </button>
+                                    )}
                                   {user.role !== 'None' && (
                                     <button
                                       type="button"
@@ -859,29 +937,29 @@ function AdminDashboard() {
 
                       {(editForm.role === 'Sponsor' ||
                         editForm.role === 'Driver') && (
-                        <div className="admin-field">
-                          <label htmlFor="edit-sponsor">
-                            Affiliated Sponsor Organization
-                          </label>
-                          <select
-                            id="edit-sponsor"
-                            value={editForm.sponsorId}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                sponsorId: e.target.value,
-                              })
-                            }
-                          >
-                            <option value="">-- Unassigned --</option>
-                            {sponsors.map((sp) => (
-                              <option key={sp.id} value={sp.id}>
-                                {sp.companyName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                          <div className="admin-field">
+                            <label htmlFor="edit-sponsor">
+                              Affiliated Sponsor Organization
+                            </label>
+                            <select
+                              id="edit-sponsor"
+                              value={editForm.sponsorId}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  sponsorId: e.target.value,
+                                })
+                              }
+                            >
+                              <option value="">-- Unassigned --</option>
+                              {sponsors.map((sp) => (
+                                <option key={sp.id} value={sp.id}>
+                                  {sp.companyName}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                       <div className="admin-field">
                         <label htmlFor="edit-pic">Profile Picture URL</label>
@@ -1032,33 +1110,33 @@ function AdminDashboard() {
 
                     {(newUserForm.role === 'Sponsor' ||
                       newUserForm.role === 'Driver') && (
-                      <div className="admin-field">
-                        <label htmlFor="new-user-sponsor">
-                          Sponsor Organization
-                        </label>
-                        <select
-                          id="new-user-sponsor"
-                          value={newUserForm.sponsorId}
-                          onChange={(e) =>
-                            setNewUserForm({
-                              ...newUserForm,
-                              sponsorId: e.target.value,
-                            })
-                          }
-                        >
-                          <option value="">
-                            {newUserForm.role === 'Sponsor'
-                              ? '-- Create New Organization Below --'
-                              : '-- Unassigned --'}
-                          </option>
-                          {sponsors.map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.companyName}
+                        <div className="admin-field">
+                          <label htmlFor="new-user-sponsor">
+                            Sponsor Organization
+                          </label>
+                          <select
+                            id="new-user-sponsor"
+                            value={newUserForm.sponsorId}
+                            onChange={(e) =>
+                              setNewUserForm({
+                                ...newUserForm,
+                                sponsorId: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="">
+                              {newUserForm.role === 'Sponsor'
+                                ? '-- Create New Organization Below --'
+                                : '-- Unassigned --'}
                             </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                            {sponsors.map((sp) => (
+                              <option key={sp.id} value={sp.id}>
+                                {sp.companyName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                     {newUserForm.role === 'Sponsor' && !newUserForm.sponsorId && (
                       <div className="admin-field">
@@ -1380,7 +1458,172 @@ function AdminDashboard() {
             )}
 
             {/* ============================================================
-                TAB 3: AUDIT LOGS & CSV EXPORT
+                TAB 3: BULK LOAD (PIPE-DELIMITED FILE UPLOAD)
+               ============================================================ */}
+            {activeTab === 'bulk' && (
+              <section className="admin-card" aria-labelledby="bulk-load-heading">
+                <header className="admin-card-header">
+                  <div>
+                    <p className="admin-eyebrow">Batch provisioning</p>
+                    <h2 id="bulk-load-heading">
+                      Bulk Load Organizations, Sponsors &amp; Drivers
+                    </h2>
+                  </div>
+                </header>
+
+                <form className="admin-form-grid" onSubmit={handleAdminBulkSubmit}>
+                  <div className="admin-field" style={{ gridColumn: '1 / -1' }}>
+                    <div
+                      style={{
+                        margin: 0,
+                        fontSize: '14px',
+                        color: '#55768d',
+                        background: '#f8faf9',
+                        padding: '14px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid #e8efec',
+                      }}
+                    >
+                      <strong style={{ color: '#29485f' }}>Format:</strong>{' '}
+                      <span style={{ fontFamily: 'monospace', color: '#1f394c' }}>
+                        &lt;type&gt;|organization name|first name|last name|email address|points|reason for points
+                      </span>
+                      <br />
+                      <span style={{ marginTop: '6px', display: 'inline-block' }}>
+                        <strong style={{ color: '#29485f' }}>Valid types for Admins:</strong>{' '}
+                        <span style={{ fontFamily: 'monospace', background: '#e8f1ed', padding: '2px 6px', borderRadius: '4px' }}>O</span> (Organization),{' '}
+                        <span style={{ fontFamily: 'monospace', background: '#e8f1ed', padding: '2px 6px', borderRadius: '4px' }}>D</span> (Driver),{' '}
+                        <span style={{ fontFamily: 'monospace', background: '#e8f1ed', padding: '2px 6px', borderRadius: '4px' }}>S</span> (Sponsor).
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="admin-field" style={{ gridColumn: '1 / -1' }}>
+                    <label htmlFor="admin-bulk-file">
+                      Upload Pipe-Delimited Text File (.txt)
+                    </label>
+                    <input
+                      id="admin-bulk-file"
+                      type="file"
+                      accept=".txt,text/plain"
+                      onChange={handleAdminBulkFileSelect}
+                    />
+                    {bulkFileName && (
+                      <small style={{ color: '#29485f', fontWeight: 600 }}>
+                        Selected file: {bulkFileName}
+                      </small>
+                    )}
+                  </div>
+
+                  <div className="admin-field" style={{ gridColumn: '1 / -1' }}>
+                    <label htmlFor="admin-bulk-textarea">
+                      File Contents Preview (or paste pipe-delimited lines directly)
+                    </label>
+                    <textarea
+                      id="admin-bulk-textarea"
+                      rows={8}
+                      value={bulkFileContent}
+                      onChange={(e) => setBulkFileContent(e.target.value)}
+                      placeholder={
+                        'O|New Organization\nD|New Organization|Joe|Driver|me@email.com\nS|New Organization|Jill|Sponsor|jill@mail.com|100|New Driver'
+                      }
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '10px 12px',
+                        border: '1px solid #cbd9d7',
+                        borderRadius: '8px',
+                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                      }}
+                    />
+                  </div>
+
+                  <div className="admin-form-footer">
+                    <button
+                      type="submit"
+                      className="admin-btn-primary"
+                      disabled={isBulkUploading}
+                    >
+                      {isBulkUploading ? 'Processing Bulk File…' : 'Upload & Process Bulk File'}
+                    </button>
+                  </div>
+                </form>
+
+                {bulkUploadResult && (
+                  <div style={{ padding: '0 24px 24px' }}>
+                    <div
+                      style={{
+                        padding: '16px',
+                        background: '#e8f1ed',
+                        borderRadius: '12px',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <strong>Bulk Upload Summary</strong>
+                      <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '14px' }}>
+                        <li>Total Lines Processed: {bulkUploadResult.summary.totalLinesProcessed}</li>
+                        <li>Organizations Created: {bulkUploadResult.summary.organizationsCreated}</li>
+                        <li>Drivers Created (Auto-Accepted): {bulkUploadResult.summary.driversCreated}</li>
+                        <li>Existing Drivers Updated: {bulkUploadResult.summary.driversUpdated}</li>
+                        <li>Sponsor Users Created: {bulkUploadResult.summary.sponsorsCreated}</li>
+                        <li>Point Transactions Applied: {bulkUploadResult.summary.pointsTransactions}</li>
+                        <li>Lines Skipped Due to Fatal Errors: {bulkUploadResult.summary.linesSkipped}</li>
+                      </ul>
+                    </div>
+
+                    {bulkUploadResult.errors?.length > 0 && (
+                      <div className="admin-table-wrapper" style={{ padding: 0 }}>
+                        <h3 style={{ color: '#9e2525', fontSize: '16px', marginBottom: '8px' }}>
+                          Line-by-Line Error &amp; Flagged Report ({bulkUploadResult.errors.length})
+                        </h3>
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Line #</th>
+                              <th>Action</th>
+                              <th>Reason / Error Details</th>
+                              <th>Original Line</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bulkUploadResult.errors.map((err, idx) => (
+                              <tr key={idx}>
+                                <td><strong>Line {err.line}</strong></td>
+                                <td>
+                                  <span className="admin-badge admin-badge-none">
+                                    {err.type}
+                                  </span>
+                                </td>
+                                <td>{err.message}</td>
+                                <td>
+                                  <span
+                                    style={{
+                                      fontFamily: 'monospace',
+                                      background: '#f2f7f5',
+                                      color: '#29485f',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #dce7e3',
+                                      display: 'inline-block',
+                                    }}
+                                  >
+                                    {err.content}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ============================================================
+                TAB 4: AUDIT LOGS & CSV EXPORT
                ============================================================ */}
             {activeTab === 'audit' && (
               <section className="admin-card" aria-labelledby="audit-heading">
@@ -1508,7 +1751,7 @@ function AdminDashboard() {
             )}
 
             {/* ============================================================
-                TAB 4: SPRINT / ABOUT PAGE MANAGER
+                TAB 5: SPRINT / ABOUT PAGE MANAGER
                ============================================================ */}
             {activeTab === 'about' && (
               <section className="admin-card" aria-labelledby="about-mgr-heading">

@@ -1,4 +1,5 @@
 require("dotenv").config();
+const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const { spawn } = require("child_process");
 const fs = require("fs");
@@ -13,7 +14,7 @@ const TEST_DB_NAME = `chilis_test_${process.pid}_${Date.now()}`;
 
 const SERVER_PORT = 5000;
 
-const SCHEMA_PATH = path.join(__dirname,"..", "database","migrations", "001_initial_schema.sql");
+const SCHEMA_PATH = path.join(__dirname, "..", "database", "migrations");
 
 let serverProcess = null;
 
@@ -65,9 +66,13 @@ async function createTestDatabase() {
 
 
 async function loadSchema() {
-  console.log("\nLoading database schema...");
+  console.log("\nLoading database schemas...");
 
-  const schema = fs.readFileSync(SCHEMA_PATH, "utf8");
+  const migrationFiles = fs
+    .readdirSync(SCHEMA_PATH, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
+    .map((entry) => entry.name)
+    .sort();
 
   const connection = await mysql.createConnection({
     host: DB_HOST,
@@ -77,13 +82,22 @@ async function loadSchema() {
     database: TEST_DB_NAME,
     multipleStatements: true
   });
+  try {
+    for (const file of migrationFiles) {
+      console.log(`Loading schema: ${file}`);
 
-  await connection.query(schema);
+      const schemaPath = path.join(SCHEMA_PATH, file);
+      const schema = fs.readFileSync(schemaPath, "utf8");
 
-  await connection.end();
+      await connection.query(schema);
+    }
 
-  console.log("Database schema loaded.");
+    console.log("All database schemas loaded.");
+  } finally {
+    await connection.end();
+  }
 }
+
 
 function startServer() {
   return new Promise((resolve, reject) => {
@@ -162,6 +176,42 @@ async function deleteTestDatabase() {
 
   console.log("Test database deleted.");
 }
+async function createAdminUser() {
+  console.log("\nCreating test admin user...");
+  const connection = await mysql.createConnection({
+    host: DB_HOST,
+    port: DB_PORT,
+    user: DB_USER,
+    password: DB_PASSWORD,
+    database: TEST_DB_NAME
+  });
+
+  try {
+    const username = "admin@email.com";
+    const password = "AdminTest";
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await connection.execute(
+      `INSERT INTO Users (
+        name,
+        username,
+        password_hash,
+        role
+      )
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        username = VALUES(username)`,
+      [
+        "John Admin",
+        username,
+        passwordHash,
+        "Admin",
+      ]
+    );
+  } finally {
+    await connection.end();
+  }
+}
 
 async function main() {
   let testsPassed = false;
@@ -170,6 +220,8 @@ async function main() {
     await createTestDatabase();
 
     await loadSchema();
+
+    await createAdminUser();
 
     await startServer();
 
@@ -208,7 +260,7 @@ async function main() {
 
   } catch (error) {
     console.error("\nTESTS FAILED");
-    console.error(error.message);
+    console.error(error);
 
     process.exitCode = 1;
 

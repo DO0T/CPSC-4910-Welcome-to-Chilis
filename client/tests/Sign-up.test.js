@@ -10,6 +10,7 @@ test.describe.serial('Driver tests', () => {
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
     await page.getByRole('button',{name: 'Create driver account'}).click();
     await page.goto('http://localhost:5173/');
+    await page.waitForTimeout(1000);
     await page.getByRole('link', { name: 'Login' }).click();
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').pressSequentially('password');
@@ -17,7 +18,7 @@ test.describe.serial('Driver tests', () => {
     await expect(page).toHaveURL('http://localhost:5173/driver-dashboard')
     });
 
-    test('Fail Sign-up', async ({ page }) => {
+    test('Fail Sign-up', async ({ page, browserName }) => {
     await page.goto('http://localhost:5173/');
     await page.getByRole('link', { name: 'Sign Up' }).click();
     await page.getByLabel('Name').pressSequentially('Jane');
@@ -27,6 +28,26 @@ test.describe.serial('Driver tests', () => {
     await page.getByRole('button',{name: 'Create driver account'}).click();
     await expect(page.getByLabel('Email')).toBeFocused();
     });
+
+    test('Fail Sign-in', async ({ page, browserName}) => {
+    const email = `john-${browserName}@test.example`;
+    await page.goto('http://localhost:5173/');
+    await page.getByRole('link', { name: 'Login' }).click();
+    await page.getByLabel('Email').fill('');
+    await page.getByRole('button', {name: 'Log in'}).click();
+    await expect(page.getByLabel('Email')).toBeFocused();
+    await page.getByLabel('Email').fill('john');
+    await page.getByRole('button', {name: 'Log in'}).click();
+    await expect(page.getByLabel('Email')).toBeFocused();
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', {name: 'Log in'}).click();
+    await expect(page.getByLabel('Password')).toBeFocused();
+    await page.getByLabel('Password').pressSequentially('wrongpassword');
+    await page.getByRole('button', {name: 'Log in'}).click();
+    await expect(page).toHaveURL('http://localhost:5173/login');
+    });
+
+
 
     test('Duplicate Email', async ({ page, browserName }) => {
     const email = `duplicate-${browserName}@test.example`;
@@ -84,17 +105,17 @@ test.describe.serial('Driver tests', () => {
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/driver-dashboard')
     await page.getByRole('button', {name: 'Edit profile'}).click();
-    await page.getByLabel('Email').pressSequentially(updatedEmail);
+    await page.getByLabel('Email').fill(updatedEmail);
     await page.getByRole('button',{name: 'save changes'}).click();
     await page.getByRole('button', {name: 'Dashboard'}).click();
     await page.getByRole('button', {name: 'Log out'}).click();
-    await page.getByRole('link', { name: 'Login' }).click();
     await page.getByLabel('Email').fill(updatedEmail);
     await page.getByLabel('Password').pressSequentially('password');
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/driver-dashboard')
     });
-    test('Sponsor edit password', async ({ page, browserName }) => {
+
+    test('Driver edit password', async ({ page, browserName }) => {
     const email = `john-${browserName}@test.example`;
     const updatedEmail = `john1-${browserName}@test.example`;
     await page.goto('http://localhost:5173/');
@@ -105,14 +126,13 @@ test.describe.serial('Driver tests', () => {
     await expect(page).toHaveURL('http://localhost:5173/driver-dashboard')
     await page.getByRole('button', {name: 'Edit profile'}).click();
     await page.getByLabel('Current password').pressSequentially('password');
-    await page.getByLabel('New password').pressSequentially('password1');
-    await page.getByLabel('Confirm new password').pressSequentially('password1');
+    await page.getByLabel('New password', {exact : true}).pressSequentially('password1');
+    await page.getByLabel('Confirm new password', {exact : true}).pressSequentially('password1');
     await page.getByRole('button',{name: 'save changes'}).click();
-    await page.getByRole('button', {name: 'Dashboard'}).click();
     await page.getByRole('button', {name: 'Log out'}).click();
-    await page.getByRole('link', { name: 'Login' }).click();
     await page.getByLabel('Email').fill(updatedEmail);
-    await page.getByLabel('Password').pressSequentially('password1');
+    await page.getByLabel('Password', {exact : true}).pressSequentially('password1');
+    await page.waitForTimeout(1000);
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/driver-dashboard')
     });
@@ -125,13 +145,14 @@ test.describe.serial('Sponsor tests', () => {
     await page.goto('http://localhost:5173/');
     await page.getByRole('link', { name: 'Sign Up' }).click();
     await page.getByRole('radio', {name: 'Sponsor'}).check();
-    await page.getByLabel('Name', {exact : true}).pressSequentially('Jane');
+    await page.getByLabel('Full name').pressSequentially('Jane');
     await page.getByLabel('Company name', {exact : true}).pressSequentially('clemson');
     await page.getByLabel('Email').pressSequentially(email);
     await page.getByLabel('Password', {exact : true}).pressSequentially('password');
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
     await page.getByRole('button',{name: 'Create sponsor account'}).click();
-    await page.getByRole('link', { name: 'Login' }).click();
+    await page.goto('http://localhost:5173/login');
+    await page.waitForTimeout(1000);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').pressSequentially('password');
     await page.getByRole('button', {name: 'Log in'}).click();
@@ -142,7 +163,7 @@ test.describe.serial('Sponsor tests', () => {
     await page.goto('http://localhost:5173/');
     await page.getByRole('link', { name: 'Sign Up' }).click();
     await page.getByRole('radio', {name: 'Sponsor'}).check();
-    await page.getByLabel('Name', {exact : true}).pressSequentially('Jane');
+    await page.getByLabel('Full name').pressSequentially('Jane');
     await page.getByLabel('Company name', {exact : true}).pressSequentially('clemson');
     await page.getByLabel('Email').pressSequentially('Jane');
     await page.getByLabel('Password', {exact : true}).pressSequentially('password');
@@ -155,7 +176,7 @@ test.describe.serial('Sponsor tests', () => {
     await page.goto('http://localhost:5173/');
     await page.getByRole('link', { name: 'Sign Up' }).click();
     await page.getByRole('radio', {name: 'Sponsor'}).check();
-    await page.getByLabel('Name', {exact : true}).pressSequentially('Jane');
+    await page.getByLabel('Full name', {exact : true}).pressSequentially('Jane');
     await page.getByLabel('Email').pressSequentially('Jane@email.com');
     await page.getByLabel('Password', {exact : true}).pressSequentially('password');
     await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
@@ -172,7 +193,7 @@ test.describe.serial('Sponsor tests', () => {
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/sponsor-dashboard')
     await page.getByRole('button', {name: 'Edit profile'}).click();
-    await page.getByLabel('Name').pressSequentially('Joan');
+    await page.getByLabel('Name').fill('Joan');
     await page.getByRole('button',{name: 'save changes'}).click();
     await page.getByRole('button', {name: 'Dashboard'}).click();
     await page.getByRole('button', {name: 'Edit profile'}).click();
@@ -189,11 +210,10 @@ test.describe.serial('Sponsor tests', () => {
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/sponsor-dashboard')
     await page.getByRole('button', {name: 'Edit profile'}).click();
-    await page.getByLabel('Email').pressSequentially(updatedEmail);
+    await page.getByLabel('Email').fill(updatedEmail);
     await page.getByRole('button',{name: 'save changes'}).click();
     await page.getByRole('button', {name: 'Dashboard'}).click();
     await page.getByRole('button', {name: 'Log out'}).click();
-    await page.getByRole('link', { name: 'Login' }).click();
     await page.getByLabel('Email').fill(updatedEmail);
     await page.getByLabel('Password').pressSequentially('password');
     await page.getByRole('button', {name: 'Log in'}).click();
@@ -210,14 +230,14 @@ test.describe.serial('Sponsor tests', () => {
     await expect(page).toHaveURL('http://localhost:5173/sponsor-dashboard')
     await page.getByRole('button', {name: 'Edit profile'}).click();
     await page.getByLabel('Current password').pressSequentially('password');
-    await page.getByLabel('New password').pressSequentially('password1');
-    await page.getByLabel('Confirm new password').pressSequentially('password1');
+    await page.getByLabel('New password', {exact : true}).pressSequentially('password1');
+    await page.getByLabel('Confirm new password', {exact : true}).pressSequentially('password1');
     await page.getByRole('button',{name: 'save changes'}).click();
     await page.getByRole('button', {name: 'Dashboard'}).click();
     await page.getByRole('button', {name: 'Log out'}).click();
-    await page.getByRole('link', { name: 'Login' }).click();
     await page.getByLabel('Email').fill(updatedEmail);
     await page.getByLabel('Password').pressSequentially('password1');
+    await page.waitForTimeout(1000);
     await page.getByRole('button', {name: 'Log in'}).click();
     await expect(page).toHaveURL('http://localhost:5173/sponsor-dashboard')
     });

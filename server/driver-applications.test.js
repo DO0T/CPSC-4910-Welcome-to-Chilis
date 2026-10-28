@@ -25,8 +25,10 @@ function setup({ role = 'Driver', sponsorId = null, latest = null, sponsorExists
     req.userRole = role;
     next();
   });
-  app.use('/api/driver/applications', createDriverApplicationsRouter(pool));
-  return { app, pool, connection };
+
+  const createAuditLog = jest.fn().mockResolvedValue();
+  app.use('/api/driver/applications', createDriverApplicationsRouter(pool, createAuditLog));
+  return { app, pool, connection, createAuditLog };
 }
 
 test('submits a pending application using the session driver ID', async () => {
@@ -162,4 +164,42 @@ test('does not reapply to a sponsor the driver already belongs to', async () => 
   expect(response.statusCode).toBe(409);
   expect(connection.rollback).toHaveBeenCalledTimes(1);
   expect(connection.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO DriverApplications'))).toBe(false);
+});
+
+test('creates an audit log when a driver submits an application', async () => {
+  const { app, connection, createAuditLog } = setup();
+
+  const response = await request(app)
+    .post('/api/driver/applications')
+    .send({ sponsorId: 7 });
+
+  expect(response.statusCode).toBe(201);
+
+  expect(createAuditLog).toHaveBeenCalledWith(
+    null,
+    'Driver Application',
+    'PENDING',
+    expect.stringContaining(
+      'Application ID: 13; Driver ID: 42; Sponsor ID: 7'
+    ),
+    connection
+  );
+
+  expect(connection.commit).toHaveBeenCalledTimes(1);
+});
+
+test('rolls back application when audit logging fails', async () => {
+  const { app, connection, createAuditLog } = setup();
+
+  createAuditLog.mockRejectedValueOnce(
+    new Error('Audit logging failed')
+  );
+
+  const response = await request(app)
+    .post('/api/driver/applications')
+    .send({ sponsorId: 7 });
+
+  expect(response.statusCode).toBe(500);
+  expect(connection.rollback).toHaveBeenCalledTimes(1);
+  expect(connection.commit).not.toHaveBeenCalled();
 });

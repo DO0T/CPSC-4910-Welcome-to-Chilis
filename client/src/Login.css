@@ -1,0 +1,15 @@
+.login-site-alerts {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  text-align: center;
+}
+
+.login-site-alert {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 20px;
+  background: #d62828;
+  color: #ffffff;
+  font-weight: 700;
+}

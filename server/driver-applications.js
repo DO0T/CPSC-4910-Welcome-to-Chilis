@@ -1,6 +1,6 @@
 const express = require('express');
 
-function createDriverApplicationsRouter(pool) {
+function createDriverApplicationsRouter(pool, createAuditLog) {
   const router = express.Router();
 
   router.get('/sponsors', async (req, res) => {
@@ -134,6 +134,15 @@ function createDriverApplicationsRouter(pool) {
         'INSERT INTO DriverApplications (driver_id, sponsor_id) VALUES (?, ?)',
         [req.userId, sponsorId]
       );
+
+      await createAuditLog(
+        null,
+        'Driver Application',
+        'PENDING',
+        `Application ID: ${result.insertId}; Driver ID: ${req.userId}; Sponsor ID: ${sponsorId}; Reason: Application submitted`,
+        connection
+      );
+
       await connection.commit();
       return res.status(201).json({
         applicationId: result.insertId,

@@ -13,6 +13,7 @@ import About from './about.jsx';
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
 import AlertSystem from './AlertSystem.jsx';
+import AdminNotifications from './AdminNotifications.jsx';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/admin-notifications" element={<AdminNotifications />} />
     </Routes>
     <AlertSystem />
     </>
