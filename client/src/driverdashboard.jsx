@@ -80,6 +80,21 @@ async function requestSponsors(token, signal) {
   return body;
 }
 
+async function requestMemberships(token, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/driver/sponsorships`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  });
+  if (response.status === 401) {
+    const error = new Error('Please log in to continue.');
+    error.status = 401;
+    throw error;
+  }
+  const body = await response.json();
+  if (!response.ok || !Array.isArray(body)) throw new Error(body?.message || 'Unable to load your sponsors.');
+  return body;
+}
+
 function DriverDashboard() {
   const navigate = useNavigate();
 
@@ -87,6 +102,7 @@ function DriverDashboard() {
   const [points, setPoints] = useState({ data: null, loading: true, error: '' });
   const [activity, setActivity] = useState({ data: [], loading: true, error: '' });
   const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
+  const [memberships, setMemberships] = useState({ data: [], loading: true, error: '' });
   const [checkingApplications, setCheckingApplications] = useState(false);
   const [applicationCheckError, setApplicationCheckError] = useState('');
   const [statusActionNotice, setStatusActionNotice] = useState({ text: '', error: false });
@@ -108,6 +124,7 @@ function DriverDashboard() {
     const pointsController = new AbortController();
     const activityController = new AbortController();
     const sponsorsController = new AbortController();
+    const membershipsController = new AbortController();
 
     async function loadProfile() {
       try {
@@ -173,16 +190,34 @@ function DriverDashboard() {
       }
     }
 
+    async function loadMemberships() {
+      try {
+        const body = await requestMemberships(token, membershipsController.signal);
+        setMemberships({ data: body, loading: false, error: '' });
+      } catch (err) {
+        if (err.status === 401) {
+          sessionStorage.removeItem('authToken');
+          navigate('/login', { replace: true });
+          return;
+        }
+        if (err.name !== 'AbortError') {
+          setMemberships({ data: [], loading: false, error: err.message || 'Unable to load your sponsors.' });
+        }
+      }
+    }
+
     loadProfile();
     loadPoints();
     loadActivity();
     loadSponsors();
+    loadMemberships();
 
     return () => {
       profileController.abort();
       pointsController.abort();
       activityController.abort();
       sponsorsController.abort();
+      membershipsController.abort();
     };
   }, [navigate]);
 
@@ -193,6 +228,17 @@ function DriverDashboard() {
     try {
       const body = await requestSponsors(sessionStorage.getItem('authToken'));
       setSponsors({ data: body, loading: false, error: '' });
+      try {
+        const memberBody = await requestMemberships(sessionStorage.getItem('authToken'));
+        setMemberships({ data: memberBody, loading: false, error: '' });
+      } catch (err) {
+        if (err.status === 401) {
+          sessionStorage.removeItem('authToken');
+          navigate('/login', { replace: true });
+          return;
+        }
+        setMemberships({ data: [], loading: false, error: err.message || 'Unable to load your sponsors.' });
+      }
     } catch (err) {
       if (err.status === 401) {
         sessionStorage.removeItem('authToken');
@@ -288,6 +334,31 @@ function DriverDashboard() {
             <LogoutButton />
           </nav>
         </header>
+
+        <section className="dashboard-card" aria-labelledby="driver-memberships-heading">
+          <header className="dashboard-card-header">
+            <h2 id="driver-memberships-heading">My sponsors</h2>
+            <p className="dashboard-section-description">Organizations you belong to.</p>
+          </header>
+          {memberships.loading ? (
+            <p className="dashboard-message" role="status">Loading your sponsors…</p>
+          ) : memberships.error ? (
+            <p className="dashboard-message" role="alert">{memberships.error}</p>
+          ) : memberships.data.length === 0 ? (
+            <p className="dashboard-message">No sponsors yet. Apply to a sponsor below to get started.</p>
+          ) : (
+            <ul className="dashboard-sponsor-list">
+              {memberships.data.map((membership) => (
+                <li className="dashboard-sponsor-item driver-membership-item" key={membership.sponsorId}>
+                  <h3>{membership.companyName}</h3>
+                  <span className={`driver-membership-label${membership.isActive ? ' driver-membership-active' : ''}`}>
+                    {membership.isActive ? 'Current sponsor' : 'Approved'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <section className="dashboard-card driver-applications-card" aria-labelledby="application-status-heading">
           <header className="dashboard-card-header driver-applications-header">

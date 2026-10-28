@@ -21,6 +21,7 @@ async function openDriverDashboard(page, getSponsors, onApply) {
       '/api/profile': { name: 'Taylor Driver' },
       '/api/driver/points': { total_points: 0 },
       '/api/driver/points-history': [],
+      '/api/driver/sponsorships': [],
       '/api/alerts': [],
     }[path];
     return route.fulfill({ status: data === undefined ? 404 : 200, json: data ?? {} });

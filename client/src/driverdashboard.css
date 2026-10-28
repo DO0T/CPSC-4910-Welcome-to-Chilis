@@ -338,6 +338,21 @@
   opacity: .48;
 }
 
+.driver-membership-label {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 13px;
+  background: #e8f1ed;
+  color: #29485f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.driver-membership-active {
+  background: #d8ebdf;
+  color: #245c48;
+}
+
 .dashboard-sponsor-more {
   padding: 20px clamp(18px, 3vw, 32px);
   border-top: 1px solid #e8efec;
