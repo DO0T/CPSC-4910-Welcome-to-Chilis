@@ -18,23 +18,27 @@ function createDriverApplicationsRouter(pool) {
       }
 
       const [sponsors] = await pool.query(
-        `SELECT s.sponsor_id, s.company_name, a.status, a.applied_at, a.decided_at,
+        `SELECT s.sponsor_id, s.company_name, ds.driver_id AS member_driver_id,
+                a.status, a.applied_at, a.decided_at,
                 DATE_ADD(a.decided_at, INTERVAL 30 DAY) AS can_reapply_at,
                 a.decided_at <= NOW() - INTERVAL 30 DAY AS cooldown_complete
          FROM Sponsors s
+         LEFT JOIN DriverSponsorships ds ON ds.driver_id = ? AND ds.sponsor_id = s.sponsor_id
          LEFT JOIN DriverApplications a ON a.application_id = (
            SELECT application_id FROM DriverApplications
            WHERE driver_id = ? AND sponsor_id = s.sponsor_id
            ORDER BY applied_at DESC, application_id DESC LIMIT 1
          )
          ORDER BY s.company_name, s.sponsor_id`,
-        [req.userId]
+        [req.userId, req.userId]
       );
 
       return res.json(sponsors.map((sponsor) => {
-        const isMember = Number(drivers[0].sponsor_id) === sponsor.sponsor_id;
+        const isCurrent = Number(drivers[0].sponsor_id) === sponsor.sponsor_id;
+        const isMember = sponsor.member_driver_id != null;
         let availability = 'available';
-        if (isMember) availability = 'sponsored';
+        if (isCurrent) availability = 'sponsored';
+        else if (isMember) availability = 'approved';
         else if (sponsor.status === 'PENDING') availability = 'pending';
         else if (sponsor.status === 'APPROVED') availability = 'approved';
         else if (sponsor.status === 'DENIED' && !Number(sponsor.cooldown_complete)) availability = 'cooldown';
@@ -91,6 +95,15 @@ function createDriverApplicationsRouter(pool) {
       }
 
       if (Number(drivers[0].sponsor_id) === sponsorId) {
+        await connection.rollback();
+        return res.status(409).json({ message: 'You already belong to this sponsor' });
+      }
+
+      const [memberships] = await connection.query(
+        'SELECT 1 FROM DriverSponsorships WHERE driver_id = ? AND sponsor_id = ? LIMIT 1',
+        [req.userId, sponsorId]
+      );
+      if (memberships.length > 0) {
         await connection.rollback();
         return res.status(409).json({ message: 'You already belong to this sponsor' });
       }

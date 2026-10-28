@@ -353,6 +353,10 @@
   color: #245c48;
 }
 
+.driver-membership-item h3 {
+  margin-bottom: 0;
+}
+
 .dashboard-sponsor-more {
   padding: 20px clamp(18px, 3vw, 32px);
   border-top: 1px solid #e8efec;

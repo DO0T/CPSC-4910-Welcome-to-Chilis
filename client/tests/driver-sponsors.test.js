@@ -55,9 +55,16 @@ test('drivers can search, filter, and reveal sponsors five at a time', async ({ 
 });
 
 test('drivers see their approved sponsors separately from applications', async ({ page }) => {
+  let activeSponsorId = 7;
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/driver/sponsorships/active' && route.request().method() === 'PATCH') {
+      activeSponsorId = route.request().postDataJSON().sponsorId;
+      return route.fulfill({ status: 200, json: {
+        activeSponsorId, companyName: activeSponsorId === 7 ? 'Acme' : 'Beacon',
+      } });
+    }
     const data = {
       '/api/session': { role: 'Driver', impersonating: null },
       '/api/profile': { name: 'Taylor Driver' },
@@ -65,8 +72,8 @@ test('drivers see their approved sponsors separately from applications', async (
       '/api/driver/points-history': [],
       '/api/driver/applications/sponsors': [],
       '/api/driver/sponsorships': [
-        { sponsorId: 7, companyName: 'Acme', isActive: true },
-        { sponsorId: 9, companyName: 'Beacon', isActive: false },
+        { sponsorId: 7, companyName: 'Acme', isActive: activeSponsorId === 7 },
+        { sponsorId: 9, companyName: 'Beacon', isActive: activeSponsorId === 9 },
       ],
       '/api/alerts': [],
     }[path];
@@ -78,5 +85,8 @@ test('drivers see their approved sponsors separately from applications', async (
   await expect(memberships).toContainText('Acme');
   await expect(memberships).toContainText('Beacon');
   await expect(memberships).toContainText('Current sponsor');
-  await expect(memberships.getByRole('button')).toHaveCount(0);
+  await memberships.getByRole('button', { name: 'Switch to Beacon' }).click();
+  await expect(memberships.getByRole('heading', { name: 'Beacon' }).locator('..')).toContainText('Current sponsor');
+  await expect(memberships.getByRole('button', { name: 'Switch to Acme' })).toBeVisible();
+  await expect(memberships.getByRole('status')).toContainText('Beacon is now your current sponsor.');
 });

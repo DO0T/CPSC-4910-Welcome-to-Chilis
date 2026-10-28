@@ -12,7 +12,7 @@ const SPONSOR_FILTERS = [
   { value: 'available', label: 'Open for applications' },
   { value: 'pending', label: 'Application pending' },
   { value: 'sponsored', label: 'Current sponsor' },
-  { value: 'approved', label: 'Application approved' },
+  { value: 'approved', label: 'Approved sponsors' },
   { value: 'cooldown', label: 'Waiting to reapply' },
 ];
 
@@ -103,6 +103,8 @@ function DriverDashboard() {
   const [activity, setActivity] = useState({ data: [], loading: true, error: '' });
   const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
   const [memberships, setMemberships] = useState({ data: [], loading: true, error: '' });
+  const [switchingSponsorId, setSwitchingSponsorId] = useState(null);
+  const [switchNotice, setSwitchNotice] = useState({ text: '', error: false });
   const [checkingApplications, setCheckingApplications] = useState(false);
   const [applicationCheckError, setApplicationCheckError] = useState('');
   const [statusActionNotice, setStatusActionNotice] = useState({ text: '', error: false });
@@ -289,6 +291,54 @@ function DriverDashboard() {
     }
   }
 
+  async function switchSponsor(sponsorId) {
+    if (switchingSponsorId !== null) return;
+    setSwitchingSponsorId(sponsorId);
+    setSwitchNotice({ text: '', error: false });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/sponsorships/active`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sponsorId }),
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to switch sponsors.');
+
+      setMemberships((current) => ({
+        ...current,
+        data: current.data.map((membership) => ({
+          ...membership,
+          isActive: membership.sponsorId === body.activeSponsorId,
+        })),
+      }));
+      setSponsors((current) => ({
+        ...current,
+        data: current.data.map((sponsor) => {
+          if (sponsor.sponsorId === body.activeSponsorId) {
+            return { ...sponsor, availability: 'sponsored', canApply: false };
+          }
+          if (sponsor.availability === 'sponsored') {
+            return { ...sponsor, availability: 'approved', canApply: false };
+          }
+          return sponsor;
+        }),
+      }));
+      setSwitchNotice({ text: `${body.companyName} is now your current sponsor.`, error: false });
+    } catch (err) {
+      setSwitchNotice({ text: err.message || 'Unable to switch sponsors.', error: true });
+    } finally {
+      setSwitchingSponsorId(null);
+    }
+  }
+
   const firstName = profile.data?.name ? profile.data.name.split(' ')[0] : 'Driver';
 
   // Recent-activity rows come back shaped like the DriverPoints table
@@ -340,6 +390,10 @@ function DriverDashboard() {
             <h2 id="driver-memberships-heading">My sponsors</h2>
             <p className="dashboard-section-description">Organizations you belong to.</p>
           </header>
+          {switchNotice.text && (
+            <p className={`dashboard-application-notice ${switchNotice.error ? 'dashboard-application-error' : ''}`}
+              role={switchNotice.error ? 'alert' : 'status'}>{switchNotice.text}</p>
+          )}
           {memberships.loading ? (
             <p className="dashboard-message" role="status">Loading your sponsors…</p>
           ) : memberships.error ? (
@@ -351,9 +405,14 @@ function DriverDashboard() {
               {memberships.data.map((membership) => (
                 <li className="dashboard-sponsor-item driver-membership-item" key={membership.sponsorId}>
                   <h3>{membership.companyName}</h3>
-                  <span className={`driver-membership-label${membership.isActive ? ' driver-membership-active' : ''}`}>
-                    {membership.isActive ? 'Current sponsor' : 'Approved'}
-                  </span>
+                  {membership.isActive ? (
+                    <span className="driver-membership-label driver-membership-active">Current sponsor</span>
+                  ) : (
+                    <button type="button" disabled={switchingSponsorId !== null}
+                      onClick={() => switchSponsor(membership.sponsorId)}>
+                      {switchingSponsorId === membership.sponsorId ? 'Switching…' : `Switch to ${membership.companyName}`}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -495,7 +554,7 @@ function DriverDashboard() {
                           <p className="dashboard-sponsor-status">
                             {sponsor.availability === 'pending' ? 'Application pending'
                               : sponsor.availability === 'sponsored' ? 'Your current sponsor'
-                                : sponsor.availability === 'approved' ? 'Application approved'
+                                : sponsor.availability === 'approved' ? 'Approved sponsor'
                                   : sponsor.availability === 'cooldown' ? 'Reapply 30 days after your denial'
                                     : 'Open for applications'}
                           </p>

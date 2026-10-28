@@ -11,6 +11,7 @@ function setup({ role = 'Driver', sponsorId = null, latest = null, sponsorExists
     query: jest.fn(async (sql) => {
       if (sql.includes('FROM Drivers')) return [[{ sponsor_id: sponsorId }]];
       if (sql.includes('FROM Sponsors')) return [sponsorExists ? [{ sponsor_id: 7 }] : []];
+      if (sql.includes('FROM DriverSponsorships')) return [[]];
       if (sql.includes('FROM DriverApplications')) return [latest ? [latest] : []];
       if (sql.includes('INSERT INTO DriverApplications')) return [{ insertId: 13 }];
       throw new Error(`Unexpected query: ${sql}`);
@@ -85,7 +86,7 @@ test('lists sponsors with availability based on the logged-in driver', async () 
   pool.query = jest.fn()
     .mockResolvedValueOnce([[{ sponsor_id: 7 }]])
     .mockResolvedValueOnce([[
-      { sponsor_id: 7, company_name: 'Current', status: null, cooldown_complete: null },
+      { sponsor_id: 7, company_name: 'Current', member_driver_id: 42, status: null, cooldown_complete: null },
       { sponsor_id: 8, company_name: 'Waiting', status: 'PENDING', cooldown_complete: null },
       { sponsor_id: 9, company_name: 'Later', status: 'DENIED', cooldown_complete: 0 },
       { sponsor_id: 10, company_name: 'Ready', status: 'DENIED', cooldown_complete: 1 },
@@ -99,7 +100,7 @@ test('lists sponsors with availability based on the logged-in driver', async () 
     { availability: 'available', canApply: true },
   ]);
   expect(pool.query.mock.calls[0][1]).toEqual([42]);
-  expect(pool.query.mock.calls[1][1]).toEqual([42]);
+  expect(pool.query.mock.calls[1][1]).toEqual([42, 42]);
 });
 
 test('returns the latest application status and decision dates for the driver', async () => {
@@ -133,5 +134,32 @@ test('returns the latest application status and decision dates for the driver', 
     }),
   ]);
   expect(pool.query.mock.calls[1][0]).toContain('can_reapply_at');
-  expect(pool.query.mock.calls[1][1]).toEqual([42]);
+  expect(pool.query.mock.calls[1][1]).toEqual([42, 42]);
+});
+
+test('keeps a previous sponsor marked as a membership after switching', async () => {
+  const { app, pool } = setup({ sponsorId: 8 });
+  pool.query = jest.fn()
+    .mockResolvedValueOnce([[{ sponsor_id: 8 }]])
+    .mockResolvedValueOnce([[
+      { sponsor_id: 7, company_name: 'Previous', member_driver_id: 42, status: null },
+      { sponsor_id: 8, company_name: 'Current', member_driver_id: 42, status: null },
+    ]]);
+  const response = await request(app).get('/api/driver/applications/sponsors');
+  expect(response.statusCode).toBe(200);
+  expect(response.body.map(({ availability, canApply }) => ({ availability, canApply }))).toEqual([
+    { availability: 'approved', canApply: false },
+    { availability: 'sponsored', canApply: false },
+  ]);
+});
+
+test('does not reapply to a sponsor the driver already belongs to', async () => {
+  const { app, connection } = setup();
+  const originalQuery = connection.query;
+  connection.query = jest.fn((sql, params) => sql.includes('FROM DriverSponsorships')
+    ? Promise.resolve([[{ 1: 1 }]]) : originalQuery(sql, params));
+  const response = await request(app).post('/api/driver/applications').send({ sponsorId: 7 });
+  expect(response.statusCode).toBe(409);
+  expect(connection.rollback).toHaveBeenCalledTimes(1);
+  expect(connection.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO DriverApplications'))).toBe(false);
 });
