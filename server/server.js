@@ -142,7 +142,7 @@ function requireAdmin(req, res, next) {
 
 app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
 app.use('/api/alerts', requireLogin, createAlertRouter(pool));
-app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter(pool));
+app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter(pool, createAuditLog));
 
 function isValidPictureUrl(value) {
   if (!value) return true;
