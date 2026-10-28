@@ -13,3 +13,25 @@ test('submitting an application requires a login session', async () => {
   expect(response.statusCode).toBe(401);
   expect(pool.getConnection).not.toHaveBeenCalled();
 });
+
+test('listing sponsor applications requires a login session', async () => {
+  const response = await request(app).get('/api/sponsor/applications');
+  expect(response.statusCode).toBe(401);
+  expect(pool.query).not.toHaveBeenCalled();
+});
+
+test('deciding an application requires a login session', async () => {
+  const response = await request(app).patch('/api/sponsor/applications/11').send({ decision: 'APPROVED' });
+  expect(response.statusCode).toBe(401);
+  expect(pool.getConnection).not.toHaveBeenCalled();
+});
+
+test('driver details and bulk decisions require a login session', async () => {
+  const details = await request(app).get('/api/sponsor/applications/11');
+  const bulk = await request(app).post('/api/sponsor/applications/bulk/decision')
+    .send({ applicationIds: [11], decision: 'APPROVED' });
+  expect(details.statusCode).toBe(401);
+  expect(bulk.statusCode).toBe(401);
+  expect(pool.query).not.toHaveBeenCalled();
+  expect(pool.getConnection).not.toHaveBeenCalled();
+});

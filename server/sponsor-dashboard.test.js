@@ -54,7 +54,9 @@ test('returns only the logged-in sponsor organization data', async () => {
     recentActivity: [{ id: 9, driver: 'Taylor Lee', points: 50 }],
   });
   expect(pool.query).toHaveBeenNthCalledWith(1, expect.stringContaining('WHERE u.user_id = ?'), [12]);
-  for (let call = 2; call <= 4; call += 1) {
+  expect(pool.query.mock.calls[1][1]).toEqual([7, 7]);
+  expect(pool.query.mock.calls[1][0]).toContain("status = 'APPROVED'");
+  for (let call = 3; call <= 4; call += 1) {
     expect(pool.query.mock.calls[call - 1][1]).toEqual([7]);
   }
 });

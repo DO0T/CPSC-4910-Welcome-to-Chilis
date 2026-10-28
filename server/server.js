@@ -17,6 +17,10 @@ const pool = require("./db");
 const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 const { createAlertRouter } = require('./alerts');
 const { createDriverApplicationsRouter } = require('./driver-applications');
+const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
+const { createDriverCatalogRouter } = require('./driver-catalog');
+const { createSponsorApplicationsRouter } = require('./sponsor-applications');
+const { loadEbaySecrets } = require('./ebay-secrets');
 
 async function verifyDatabaseConnection() {
   try {
@@ -143,6 +147,9 @@ function requireAdmin(req, res, next) {
 app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
 app.use('/api/alerts', requireLogin, createAlertRouter(pool));
 app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter(pool, createAuditLog));
+app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter(pool));
+app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
+app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
 
 function isValidPictureUrl(value) {
   if (!value) return true;
@@ -752,7 +759,6 @@ app.get("/api/driver/points-history", requireLogin, async (req, res) => {
 });
 
 // Sponsor dashboard data comes only from the sponsor linked to this session.
-// Driver applications are not included because the schema has no application records yet.
 app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
   try {
     const [accounts] = await pool.query(
@@ -791,8 +797,11 @@ app.get("/api/sponsor/dashboard", requireLogin, async (req, res) => {
     const [driversResult, pointsResult, activityResult] =
       await Promise.allSettled([
         pool.query(
-          "SELECT COUNT(*) AS sponsored_drivers FROM Drivers WHERE sponsor_id = ?;",
-          [sponsorId]
+          "SELECT COUNT(*) AS sponsored_drivers FROM (" +
+          "SELECT user_id AS driver_id FROM Drivers WHERE sponsor_id = ? " +
+          "UNION SELECT driver_id FROM DriverApplications WHERE sponsor_id = ? AND status = 'APPROVED'" +
+          ") AS sponsor_drivers;",
+          [sponsorId, sponsorId]
         ),
         pool.query(
           "SELECT COALESCE(SUM(point_change), 0) AS points_awarded_this_month " +
@@ -2306,10 +2315,17 @@ app.post("/api/bulk-upload", requireLogin, async (req, res) => {
 
 // --- SERVER STARTUP ---
 if (require.main === module) {
-  verifyDatabaseConnection();
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-  });
+  loadEbaySecrets()
+    .then(() => {
+      verifyDatabaseConnection();
+      app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error('eBay secret setup failed:', error.message);
+      process.exitCode = 1;
+    });
 }
 
 module.exports = app;

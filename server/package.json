@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1158.0",
     "bcrpyt": "^2.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",

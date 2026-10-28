@@ -126,6 +126,120 @@
   background: #fff0ee;
 }
 
+.driver-applications-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.driver-applications-header h2 {
+  margin: 0;
+  color: #29485f;
+  font-size: clamp(24px, 4vw, 32px);
+}
+
+.driver-check-status,
+.driver-reapply-button {
+  border: 1px solid #55768d;
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: #fff;
+  color: #29485f;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.driver-check-status:hover:not(:disabled),
+.driver-reapply-button:hover:not(:disabled) {
+  background: #f2f7f5;
+}
+
+.driver-check-status:focus-visible,
+.driver-reapply-button:focus-visible {
+  outline: 2px solid #29485f;
+  outline-offset: 2px;
+}
+
+.driver-check-status:disabled,
+.driver-reapply-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.driver-application-summary-count {
+  margin: 0;
+  padding: 16px clamp(18px, 3vw, 32px);
+  color: #55768d;
+  font-size: 14px;
+}
+
+.driver-application-status-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.driver-application-status-item {
+  padding: 20px clamp(18px, 3vw, 32px);
+  border-top: 1px solid #e8efec;
+}
+
+.driver-application-status-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.driver-application-status-top h3 {
+  margin: 0;
+  color: #29485f;
+  font-size: 17px;
+}
+
+.driver-application-status-top p {
+  margin: 5px 0 0;
+  color: #55768d;
+  font-size: 13px;
+}
+
+.driver-application-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.driver-application-badge-pending {
+  background: #f9efd8;
+  color: #7a570f;
+}
+
+.driver-application-badge-approved {
+  background: #e3f2e9;
+  color: #245c48;
+}
+
+.driver-application-badge-denied {
+  background: #fff0ee;
+  color: #8a3030;
+}
+
+.driver-application-next-step {
+  margin: 12px 0 0;
+  color: #29485f;
+  line-height: 1.45;
+}
+
+.driver-reapply-button {
+  margin-top: 14px;
+}
+
 .dashboard-sponsor-controls {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
@@ -223,6 +337,51 @@
   cursor: not-allowed;
   opacity: .48;
 }
+
+.driver-membership-label {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 13px;
+  background: #e8f1ed;
+  color: #29485f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.driver-membership-active {
+  background: #d8ebdf;
+  color: #245c48;
+}
+
+.driver-membership-item h3 {
+  margin-bottom: 0;
+}
+
+.driver-catalog-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d4e3dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #29485f;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.driver-catalog-link:hover { background: #e8f1ed; }
+.driver-catalog-link:focus-visible { outline: 2px solid #55768d; outline-offset: 2px; }
+
+.driver-memberships-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.driver-memberships-header h2 { margin: 0; }
 
 .dashboard-sponsor-more {
   padding: 20px clamp(18px, 3vw, 32px);
@@ -322,6 +481,11 @@
 }
 
 @media (max-width: 600px) {
+  .driver-application-status-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .dashboard-sponsor-controls {
     grid-template-columns: 1fr;
   }

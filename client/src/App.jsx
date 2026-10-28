@@ -4,6 +4,7 @@ import Home from './Home.jsx';
 import SignUp from './signup.jsx';
 import EditProfile from './editprofile.jsx';
 import DriverDashboard from './driverdashboard.jsx';
+import DriverCatalog from './drivercatalog.jsx';
 import SponsorDashboard from './sponsordashboard.jsx';
 import SponsorCatalog from './sponsorcatalog.jsx';
 import AdminDashboard from './admindashboard.jsx';
@@ -25,6 +26,7 @@ function App() {
       <Route path="/editprofile" element={<EditProfile />} />
       <Route path="/about" element={<About />} />
       <Route path="/driver-dashboard" element={<DriverDashboard />} />
+      <Route path="/driver-catalog" element={<DriverCatalog />} />
       <Route path="/sponsor-dashboard" element={<SponsorDashboard />} />
       <Route path="/sponsor-catalog" element={<SponsorCatalog />} />
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
