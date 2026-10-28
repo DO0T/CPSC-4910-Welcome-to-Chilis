@@ -18,6 +18,7 @@ const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 const { createAlertRouter } = require('./alerts');
 const { createDriverApplicationsRouter } = require('./driver-applications');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
+const { loadEbaySecrets } = require('./ebay-secrets');
 
 async function verifyDatabaseConnection() {
   try {
@@ -1708,10 +1709,17 @@ app.get("/api/audit-logs/sponsors", requireLogin, requireAdmin, async (req, res)
 
 // --- SERVER STARTUP ---
 if (require.main === module) {
-  verifyDatabaseConnection();
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-  });
+  loadEbaySecrets()
+    .then(() => {
+      verifyDatabaseConnection();
+      app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error('eBay secret setup failed:', error.message);
+      process.exitCode = 1;
+    });
 }
 
 module.exports = app;

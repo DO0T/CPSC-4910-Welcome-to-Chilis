@@ -120,6 +120,12 @@ test.each(['APPROVED', 'DENIED'])('records a %s decision for this sponsor', asyn
   expect(connection.query.mock.calls[1][1]).toEqual([11, 7]);
   expect(connection.query.mock.calls[2][1]).toEqual([decision, 42, 11, 7]);
   expect(connection.query.mock.calls[2][0]).not.toContain('Drivers SET');
+  if (decision === 'APPROVED') {
+    expect(connection.query.mock.calls[3][0]).toContain('INSERT INTO DriverSponsorships');
+    expect(connection.query.mock.calls[3][1]).toEqual([23, 7]);
+  } else {
+    expect(connection.query).toHaveBeenCalledTimes(3);
+  }
   expect(connection.commit).toHaveBeenCalledTimes(1);
   expect(connection.release).toHaveBeenCalledTimes(1);
 });
@@ -154,7 +160,8 @@ test('cannot change an application after it has been decided', async () => {
 });
 
 function setupBulk({ role = 'Sponsor', sponsorRows = [{ sponsor_id: 7 }], rows = [
-  { application_id: 11, status: 'PENDING' }, { application_id: 12, status: 'PENDING' },
+  { application_id: 11, driver_id: 23, status: 'PENDING' },
+  { application_id: 12, driver_id: 24, status: 'PENDING' },
 ], affectedRows = 2 } = {}) {
   const connection = {
     beginTransaction: jest.fn().mockResolvedValue(),
@@ -188,6 +195,12 @@ test.each(['APPROVED', 'DENIED'])('bulk %s changes every selected application in
   expect(connection.query.mock.calls[1][1]).toEqual([7, 11, 12]);
   expect(connection.query.mock.calls[2][1]).toEqual([decision, 42, 7, 11, 12]);
   expect(connection.query.mock.calls[2][0]).not.toContain('Drivers SET');
+  if (decision === 'APPROVED') {
+    expect(connection.query.mock.calls[3][0]).toContain('INSERT INTO DriverSponsorships');
+    expect(connection.query.mock.calls[3][1]).toEqual([23, 7, 24, 7]);
+  } else {
+    expect(connection.query).toHaveBeenCalledTimes(3);
+  }
   expect(connection.commit).toHaveBeenCalledTimes(1);
   expect(connection.rollback).not.toHaveBeenCalled();
 });
@@ -230,6 +243,26 @@ test('bulk decisions roll back if the update did not affect every row', async ()
   const response = await request(app).post('/api/sponsor/applications/bulk/decision')
     .send({ applicationIds: [11, 12], decision: 'APPROVED' });
   expect(response.statusCode).toBe(409);
+  expect(connection.rollback).toHaveBeenCalledTimes(1);
+  expect(connection.commit).not.toHaveBeenCalled();
+});
+
+test('a failed sponsorship insert rolls back the application approval', async () => {
+  const { app, connection } = setupDecision();
+  connection.query.mockRejectedValueOnce(new Error('Membership insert failed'));
+  const response = await request(app).patch('/api/sponsor/applications/11')
+    .send({ decision: 'APPROVED' });
+  expect(response.statusCode).toBe(500);
+  expect(connection.rollback).toHaveBeenCalledTimes(1);
+  expect(connection.commit).not.toHaveBeenCalled();
+});
+
+test('a failed bulk sponsorship insert rolls back all approvals', async () => {
+  const { app, connection } = setupBulk();
+  connection.query.mockRejectedValueOnce(new Error('Membership insert failed'));
+  const response = await request(app).post('/api/sponsor/applications/bulk/decision')
+    .send({ applicationIds: [11, 12], decision: 'APPROVED' });
+  expect(response.statusCode).toBe(500);
   expect(connection.rollback).toHaveBeenCalledTimes(1);
   expect(connection.commit).not.toHaveBeenCalled();
 });

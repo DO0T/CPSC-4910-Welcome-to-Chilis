@@ -119,7 +119,7 @@ function createSponsorApplicationsRouter(pool) {
       const sponsorId = sponsorUsers[0].sponsor_id;
 
       const [rows] = await connection.query(
-        `SELECT application_id, status FROM DriverApplications
+        `SELECT application_id, driver_id, status FROM DriverApplications
          WHERE sponsor_id = ? AND application_id IN (${placeholders})
          ORDER BY application_id FOR UPDATE`,
         [sponsorId, ...ids]
@@ -141,6 +141,15 @@ function createSponsorApplicationsRouter(pool) {
       if (result.affectedRows !== ids.length) {
         await connection.rollback();
         return res.status(409).json({ message: 'Applications changed while processing. Refresh the page.' });
+      }
+
+      if (decision === 'APPROVED') {
+        const values = rows.map(() => '(?, ?)').join(', ');
+        await connection.query(
+          `INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES ${values}
+           ON DUPLICATE KEY UPDATE sponsor_id = sponsor_id`,
+          rows.flatMap((row) => [row.driver_id, sponsorId])
+        );
       }
 
       await connection.commit();
@@ -200,6 +209,13 @@ function createSponsorApplicationsRouter(pool) {
         'UPDATE DriverApplications SET status = ?, decided_at = NOW(), decided_by = ? WHERE application_id = ? AND sponsor_id = ?',
         [decision, req.userId, applicationId, sponsorId]
       );
+      if (decision === 'APPROVED') {
+        await connection.query(
+          `INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE sponsor_id = sponsor_id`,
+          [applications[0].driver_id, sponsorId]
+        );
+      }
       await connection.commit();
 
       return res.json({ applicationId, status: decision, driverId: applications[0].driver_id });
