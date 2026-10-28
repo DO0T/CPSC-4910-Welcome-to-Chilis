@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer"); // Added for sending emails
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit: "50mb"}));
 
 const pool = require("./db");
 const { createSponsorCatalogRouter } = require('./sponsor-catalog');
@@ -1837,6 +1837,472 @@ app.delete(
     }
   }
 );
+
+
+//Bul loading of users and organizations from a text file (Admin or Sponsor only)
+app.post("/api/bulk-upload", requireLogin, async (req, res) => {
+  const isAdminUploader = req.userRole === "Admin" || req.isAdmin && req.userRole !== "Sponsor";
+  const isSponsorUploader = req.userRole === "Sponsor";
+
+  if (!isAdminUploader && !isSponsorUploader) {
+    return res.status(403).json({
+      message: "Only Sponsor and Admin users can perform bulk uploads.",
+    });
+  }
+
+  const { fileContent } = req.body || {};
+  if (typeof fileContent !== "string" || !fileContent.trim()) {
+    return res.status(400).json({
+      message: "Uploaded file is empty or invalid.",
+    });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+
+    // If uploader is a Sponsor (or an Admin currently impersonating a Sponsor),
+    // look up their affiliated organization.
+    let sponsorOrgId = null;
+    let sponsorOrgName = null;
+    if (isSponsorUploader) {
+      const [spRows] = await connection.query(
+        `SELECT s.sponsor_id, s.company_name
+         FROM SponsorUsers su
+         JOIN Sponsors s ON s.sponsor_id = su.sponsor_id
+         WHERE su.user_id = ? LIMIT 1;`,
+        [req.userId]
+      );
+      if (spRows.length === 0) {
+        return res.status(400).json({
+          message: "Your sponsor account is not linked to an organization.",
+        });
+      }
+      sponsorOrgId = spRows[0].sponsor_id;
+      sponsorOrgName = spRows[0].company_name;
+    }
+
+    // Pre-load existing organizations (case-insensitive map: lowerName -> { id, name })
+    const [existingOrgs] = await connection.query(
+      "SELECT sponsor_id, company_name FROM Sponsors;"
+    );
+    const orgMap = new Map();
+    for (const org of existingOrgs) {
+      orgMap.set(org.company_name.trim().toLowerCase(), {
+        id: org.sponsor_id,
+        name: org.company_name.trim(),
+      });
+    }
+
+    // Pre-hash a default temporary password once so bulk creating many users is fast
+    const defaultPasswordHash = await bcrypt.hash("ChangeMe123!", 10);
+
+    const rawLines = fileContent.split(/\r?\n/);
+    const errors = []; // Line-by-line errors/warnings reported back to the uploader
+    const summary = {
+      totalLinesProcessed: 0,
+      organizationsCreated: 0,
+      driversCreated: 0,
+      driversUpdated: 0,
+      sponsorsCreated: 0,
+      pointsTransactions: 0,
+      linesSkipped: 0,
+    };
+
+    for (let i = 0; i < rawLines.length; i++) {
+      const lineNumber = i + 1;
+      const line = rawLines[i];
+
+      // Ignore completely empty lines (such as trailing newline at EOF)
+      if (!line || !line.trim()) continue;
+      summary.totalLinesProcessed++;
+
+      const parts = line.split("|");
+
+      // File Rule: Data cannot contain the pipe "|" delimiter
+      if (parts.length > 7) {
+        errors.push({
+          line: lineNumber,
+          type: "Skipped",
+          content: line,
+          message:
+            'Line contains extra pipe ("|") delimiters (maximum 7 fields allowed). Line skipped.',
+        });
+        summary.linesSkipped++;
+        continue;
+      }
+
+      const recordType = (parts[0] || "").trim();
+      const orgField = (parts[1] || "").trim();
+      const firstName = (parts[2] || "").trim();
+      const lastName = (parts[3] || "").trim();
+      const email = (parts[4] || "").trim().toLowerCase();
+      const pointsField = (parts[5] || "").trim();
+      const reasonField = (parts[6] || "").trim();
+
+      // File Rule: Any <type> value other than O, D, or S is an error
+      if (!["O", "D", "S"].includes(recordType)) {
+        errors.push({
+          line: lineNumber,
+          type: "Skipped",
+          content: line,
+          message: `Invalid record <type> "${recordType}". Only O, D, or S are allowed. Line skipped.`,
+        });
+        summary.linesSkipped++;
+        continue;
+      }
+
+      // CASE 1: RECORD TYPE 'O' (ORGANIZATION - ADMIN ONLY)
+      if (recordType === "O") {
+        // Sponsor Rule 1: Sponsors cannot use the "O" type
+        if (isSponsorUploader) {
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message:
+              'Sponsor users cannot use the "O" (Organization) record type. Line skipped.',
+          });
+          summary.linesSkipped++;
+          continue;
+        }
+
+        if (!orgField) {
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message:
+              'Missing organization name on "O" record. Line skipped.',
+          });
+          summary.linesSkipped++;
+          continue;
+        }
+
+        const extraFieldsOnO = [firstName, lastName, email, pointsField, reasonField].some(
+          (val) => val !== ""
+        );
+        if (extraFieldsOnO) {
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message:
+              '"O" record contains unexpected user/point fields beyond organization name. Line skipped.',
+          });
+          summary.linesSkipped++;
+          continue;
+        }
+
+        const orgKey = orgField.toLowerCase();
+        if (!orgMap.has(orgKey)) {
+          const [insOrg] = await connection.query(
+            "INSERT INTO Sponsors (company_name) VALUES (?);",
+            [orgField]
+          );
+          orgMap.set(orgKey, { id: insOrg.insertId, name: orgField });
+          summary.organizationsCreated++;
+        }
+        continue;
+      }
+
+      // CASE 2: RESOLVE TARGET ORGANIZATION FOR 'D' AND 'S' RECORDS
+      let targetSponsorId = null;
+      let targetSponsorName = null;
+
+      if (isSponsorUploader) {
+        // Sponsor Rule 2: Must omit the organization name field; if present,
+        // flag the error and ignore the organization (use sponsor's own organization).
+        if (orgField !== "") {
+          errors.push({
+            line: lineNumber,
+            type: "Flagged (Processed)",
+            content: line,
+            message: `Organization name "${orgField}" is not allowed for Sponsor uploads. Flagged error and ignored organization (assigned to "${sponsorOrgName}").`,
+          });
+        }
+        targetSponsorId = sponsorOrgId;
+        targetSponsorName = sponsorOrgName;
+      } else {
+        // Admin Rule A: Organization must already exist in the system OR be created via an "O" record first
+        if (!orgField) {
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message:
+              "Organization name is required when an Admin uploads a Driver or Sponsor record. Line skipped.",
+          });
+          summary.linesSkipped++;
+          continue;
+        }
+
+        const matchedOrg = orgMap.get(orgField.toLowerCase());
+        if (!matchedOrg) {
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message: `Organization "${orgField}" does not exist. It must already exist or be created via an "O" record first. Line skipped.`,
+          });
+          summary.linesSkipped++;
+          continue;
+        }
+        targetSponsorId = matchedOrg.id;
+        targetSponsorName = matchedOrg.name;
+      }
+
+      // Validate required identity fields (First Name, Last Name, Email)
+      if (!firstName || !lastName || !email) {
+        errors.push({
+          line: lineNumber,
+          type: "Skipped",
+          content: line,
+          message:
+            "First name, last name, and email address are required for Driver and Sponsor records. Line skipped.",
+        });
+        summary.linesSkipped++;
+        continue;
+      }
+
+      const fullName = `${firstName} ${lastName}`;
+
+      // CASE 3: RECORD TYPE 'S' (SPONSOR USER)
+      if (recordType === "S") {
+        // Sponsor Rule 3: Points cannot be assigned to Sponsor users; if present,
+        // flag the error and ignore the fields. If the sponsor user does not exist, create them.
+        if (pointsField !== "" || reasonField !== "") {
+          errors.push({
+            line: lineNumber,
+            type: "Flagged (Processed)",
+            content: line,
+            message:
+              "Points cannot be assigned to Sponsor users. Flagged error and ignored point fields; Sponsor user still processed.",
+          });
+        }
+
+        await connection.beginTransaction();
+        try {
+          const [existingUsers] = await connection.query(
+            "SELECT user_id, role FROM Users WHERE username = ? LIMIT 1;",
+            [email]
+          );
+
+          if (existingUsers.length === 0) {
+            const [userRes] = await connection.query(
+              "INSERT INTO Users (name, username, password_hash, role) VALUES (?, ?, ?, 'Sponsor');",
+              [fullName, email, defaultPasswordHash]
+            );
+            await connection.query(
+              "INSERT INTO SponsorUsers (user_id, sponsor_id) VALUES (?, ?);",
+              [userRes.insertId, targetSponsorId]
+            );
+            summary.sponsorsCreated++;
+          } else {
+            const existingUser = existingUsers[0];
+            if (existingUser.role !== "Sponsor") {
+              await connection.rollback();
+              errors.push({
+                line: lineNumber,
+                type: "Skipped",
+                content: line,
+                message: `User "${email}" already exists with role "${existingUser.role}" and cannot be created as a Sponsor. Line skipped.`,
+              });
+              summary.linesSkipped++;
+              continue;
+            }
+            // Update name and ensure SponsorUsers link
+            await connection.query(
+              "UPDATE Users SET name = ? WHERE user_id = ?;",
+              [fullName, existingUser.user_id]
+            );
+            await connection.query(
+              `INSERT INTO SponsorUsers (user_id, sponsor_id) VALUES (?, ?)
+               ON DUPLICATE KEY UPDATE sponsor_id = VALUES(sponsor_id);`,
+              [existingUser.user_id, targetSponsorId]
+            );
+          }
+          await connection.commit();
+        } catch (lineErr) {
+          await connection.rollback();
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message: `Database error while processing Sponsor "${email}": ${lineErr.message}`,
+          });
+          summary.linesSkipped++;
+        }
+        continue;
+      }
+
+      // CASE 4: RECORD TYPE 'D' (DRIVER INFORMATION & OPTIONAL POINTS)
+      if (recordType === "D") {
+        let parsedPoints = null;
+
+        // File Rule: The points and reason for points fields are optional.
+        // If the points field is present, then there must be a reason for points field.
+        if (pointsField !== "") {
+          const numPoints = Number(pointsField);
+          if (!Number.isInteger(numPoints)) {
+            errors.push({
+              line: lineNumber,
+              type: "Skipped",
+              content: line,
+              message: `Invalid points value "${pointsField}". Points must be an integer. Line skipped.`,
+            });
+            summary.linesSkipped++;
+            continue;
+          }
+          if (!reasonField) {
+            errors.push({
+              line: lineNumber,
+              type: "Skipped",
+              content: line,
+              message:
+                "Points field is present, but the required reason for points field is missing. Line skipped.",
+            });
+            summary.linesSkipped++;
+            continue;
+          }
+          parsedPoints = numPoints;
+        }
+
+        await connection.beginTransaction();
+        try {
+          const [existingUsers] = await connection.query(
+            "SELECT user_id, role FROM Users WHERE username = ? LIMIT 1;",
+            [email]
+          );
+
+          let driverUserId = null;
+
+          if (existingUsers.length === 0) {
+            // Sponsor Rule 4 & 5: Create driver, automatically accept into the organization
+            const [userRes] = await connection.query(
+              "INSERT INTO Users (name, username, password_hash, role) VALUES (?, ?, ?, 'Driver');",
+              [fullName, email, defaultPasswordHash]
+            );
+            driverUserId = userRes.insertId;
+
+            await connection.query(
+              "INSERT INTO Drivers (user_id, sponsor_id, total_points) VALUES (?, ?, 0);",
+              [driverUserId, targetSponsorId]
+            );
+
+            await createAuditLog(
+              email,
+              "Driver Application",
+              "ACCEPTED",
+              `Driver ID: ${driverUserId}; Sponsor ID: ${targetSponsorId} (${targetSponsorName}); Reason: Automatic acceptance via bulk upload`,
+              connection
+            );
+
+            summary.driversCreated++;
+          } else {
+            const existingUser = existingUsers[0];
+            if (existingUser.role !== "Driver") {
+              await connection.rollback();
+              errors.push({
+                line: lineNumber,
+                type: "Skipped",
+                content: line,
+                message: `User "${email}" already exists with role "${existingUser.role}" and cannot be processed as a Driver. Line skipped.`,
+              });
+              summary.linesSkipped++;
+              continue;
+            }
+
+            driverUserId = existingUser.user_id;
+
+            const [driverRows] = await connection.query(
+              "SELECT sponsor_id FROM Drivers WHERE user_id = ? LIMIT 1;",
+              [driverUserId]
+            );
+
+            // If a Sponsor is uploading, verify the existing driver isn't affiliated with a different company
+            if (
+              isSponsorUploader &&
+              driverRows.length > 0 &&
+              driverRows[0].sponsor_id != null &&
+              driverRows[0].sponsor_id !== targetSponsorId
+            ) {
+              await connection.rollback();
+              errors.push({
+                line: lineNumber,
+                type: "Skipped",
+                content: line,
+                message: `Driver "${email}" is affiliated with another sponsor organization. Sponsors can only update drivers in their own organization. Line skipped.`,
+              });
+              summary.linesSkipped++;
+              continue;
+            }
+
+            await connection.query(
+              "UPDATE Users SET name = ? WHERE user_id = ?;",
+              [fullName, driverUserId]
+            );
+
+            await connection.query(
+              `INSERT INTO Drivers (user_id, sponsor_id, total_points) VALUES (?, ?, 0)
+               ON DUPLICATE KEY UPDATE sponsor_id = VALUES(sponsor_id);`,
+              [driverUserId, targetSponsorId]
+            );
+
+            summary.driversUpdated++;
+          }
+
+          // Sponsor Rule 4: If points are provided, add them to the driver
+          if (parsedPoints !== null && parsedPoints !== 0) {
+            await connection.query(
+              "UPDATE Drivers SET total_points = COALESCE(total_points, 0) + ? WHERE user_id = ?;",
+              [parsedPoints, driverUserId]
+            );
+
+            await connection.query(
+              "INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, ?, ?);",
+              [driverUserId, targetSponsorId, parsedPoints, reasonField]
+            );
+
+            await createAuditLog(
+              email,
+              "Point Change",
+              "Success",
+              `Driver ID: ${driverUserId}; Sponsor ID: ${targetSponsorId}; Points changed by ${parsedPoints}; Reason: ${reasonField}`,
+              connection
+            );
+
+            summary.pointsTransactions++;
+          }
+
+          await connection.commit();
+        } catch (lineErr) {
+          await connection.rollback();
+          errors.push({
+            line: lineNumber,
+            type: "Skipped",
+            content: line,
+            message: `Database error while processing Driver "${email}": ${lineErr.message}`,
+          });
+          summary.linesSkipped++;
+        }
+      }
+    }
+
+    return res.status(200).json({
+      message: "Bulk file processing complete.",
+      summary,
+      errors,
+    });
+  } catch (error) {
+    console.error("Bulk upload error:", error);
+    return res.status(500).json({
+      message: "An unexpected server error occurred during bulk upload.",
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 // --- SERVER STARTUP ---
 if (require.main === module) {
