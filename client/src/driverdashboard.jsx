@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
 import './driverdashboard.css';
 
@@ -386,9 +386,14 @@ function DriverDashboard() {
         </header>
 
         <section className="dashboard-card" aria-labelledby="driver-memberships-heading">
-          <header className="dashboard-card-header">
-            <h2 id="driver-memberships-heading">My sponsors</h2>
-            <p className="dashboard-section-description">Organizations you belong to.</p>
+          <header className="dashboard-card-header driver-memberships-header">
+            <div>
+              <h2 id="driver-memberships-heading">My sponsors</h2>
+              <p className="dashboard-section-description">Organizations you belong to.</p>
+            </div>
+            {memberships.data.some((membership) => membership.isActive) && (
+              <Link className="driver-catalog-link" to="/driver-catalog">View catalog</Link>
+            )}
           </header>
           {switchNotice.text && (
             <p className={`dashboard-application-notice ${switchNotice.error ? 'dashboard-application-error' : ''}`}

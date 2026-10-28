@@ -357,6 +357,32 @@
   margin-bottom: 0;
 }
 
+.driver-catalog-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d4e3dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #29485f;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.driver-catalog-link:hover { background: #e8f1ed; }
+.driver-catalog-link:focus-visible { outline: 2px solid #55768d; outline-offset: 2px; }
+
+.driver-memberships-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.driver-memberships-header h2 { margin: 0; }
+
 .dashboard-sponsor-more {
   padding: 20px clamp(18px, 3vw, 32px);
   border-top: 1px solid #e8efec;

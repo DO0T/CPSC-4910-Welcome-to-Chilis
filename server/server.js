@@ -18,6 +18,7 @@ const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 const { createAlertRouter } = require('./alerts');
 const { createDriverApplicationsRouter } = require('./driver-applications');
 const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
+const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
 const { loadEbaySecrets } = require('./ebay-secrets');
 
@@ -147,6 +148,7 @@ app.use('/api/sponsor/catalog', requireLogin, createSponsorCatalogRouter(pool));
 app.use('/api/alerts', requireLogin, createAlertRouter(pool));
 app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter(pool));
 app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter(pool));
+app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
 
 function isValidPictureUrl(value) {

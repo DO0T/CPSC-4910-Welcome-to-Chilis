@@ -81,10 +81,11 @@ test('drivers see their approved sponsors separately from applications', async (
   });
 
   await page.goto('http://localhost:5173/driver-dashboard');
-  const memberships = page.getByRole('heading', { name: 'My sponsors' }).locator('..').locator('..');
+  const memberships = page.locator('section[aria-labelledby="driver-memberships-heading"]');
   await expect(memberships).toContainText('Acme');
   await expect(memberships).toContainText('Beacon');
   await expect(memberships).toContainText('Current sponsor');
+  await expect(memberships.getByRole('link', { name: 'View catalog' })).toHaveAttribute('href', '/driver-catalog');
   await memberships.getByRole('button', { name: 'Switch to Beacon' }).click();
   await expect(memberships.getByRole('heading', { name: 'Beacon' }).locator('..')).toContainText('Current sponsor');
   await expect(memberships.getByRole('button', { name: 'Switch to Acme' })).toBeVisible();
