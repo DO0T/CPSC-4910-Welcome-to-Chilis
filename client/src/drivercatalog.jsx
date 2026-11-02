@@ -21,6 +21,16 @@ function DriverCatalog() {
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+
+  function listingUrl(value) {
+    try {
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -83,12 +93,23 @@ function DriverCatalog() {
             <ul className="driver-catalog-list">
               {catalog.items.map((item) => (
                 <li className="driver-catalog-item" key={item.id}>
+                  <button type="button" className="driver-catalog-item-button"
+                    aria-expanded={selectedId === item.id}
+                    aria-controls={`reward-details-${item.id}`}
+                    onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}>
                   <CatalogImage item={item} />
                   <div>
                     <h3>{item.title}</h3>
-                    <p className="driver-catalog-points">
+                    <span className="driver-catalog-points">
                       {item.pointCost == null ? 'Point cost unavailable' : `${item.pointCost.toLocaleString()} pts`}
-                    </p>
+                    </span>
+                    <span className="driver-catalog-details-label">{selectedId === item.id ? 'Hide details' : 'View details'}</span>
+                  </div>
+                  </button>
+                  <div id={`reward-details-${item.id}`} className="driver-catalog-details" hidden={selectedId !== item.id}>
+                    <p>Available from {catalog.companyName}</p>
+                    {item.mediaRating && <p>Media rating: {item.mediaRating}</p>}
+                    {listingUrl(item.itemUrl) && <a href={listingUrl(item.itemUrl)} target="_blank" rel="noopener noreferrer">View original listing</a>}
                   </div>
                 </li>
               ))}

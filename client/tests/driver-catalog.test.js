@@ -14,7 +14,7 @@ test('shows saved rewards from the active sponsor without purchasing controls', 
       '/api/session': { role: 'Driver', impersonating: null },
       '/api/driver/catalog': {
         sponsorId: 7, companyName: 'Acme', items: [
-          { id: 3, title: 'Phone stand', imageUrl: '', pointCost: 41 },
+          { id: 3, title: 'Phone stand', imageUrl: '', pointCost: 41, mediaRating: 'PG', itemUrl: 'https://example.com/item' },
           { id: 4, title: 'Travel mug', imageUrl: '', pointCost: 20 },
         ],
       },
@@ -27,6 +27,14 @@ test('shows saved rewards from the active sponsor without purchasing controls', 
   await expect(page.locator('.driver-catalog-item')).toHaveCount(2);
   await expect(page.locator('.driver-catalog-item').first()).toContainText('41 pts');
   await expect(page.locator('.driver-catalog-item').last()).toContainText('20 pts');
+  const item = page.getByRole('button', { name: /Phone stand/ });
+  await item.focus();
+  await page.keyboard.press('Enter');
+  await expect(item).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText('Media rating: PG')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View original listing' })).toHaveAttribute('href', 'https://example.com/item');
+  await item.click();
+  await expect(page.getByText('Media rating: PG')).toBeHidden();
   await expect(page.getByRole('button', { name: /buy|purchase|checkout/i })).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 780 });
   await expect(page.locator('.driver-catalog-item').first()).toBeVisible();

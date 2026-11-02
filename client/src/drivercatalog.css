@@ -21,7 +21,8 @@
 .driver-catalog-nav-link:hover { background: #e8f1ed; }
 
 .driver-catalog-nav-link:focus-visible,
-.driver-catalog a:focus-visible {
+.driver-catalog a:focus-visible,
+.driver-catalog button:focus-visible {
   outline: 2px solid #55768d;
   outline-offset: 2px;
 }
@@ -33,13 +34,27 @@
 }
 
 .driver-catalog-item {
+  border-top: 1px solid #e8efec;
+}
+
+.driver-catalog-item-button {
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr);
   align-items: center;
   gap: 22px;
   padding: 22px clamp(18px, 3vw, 32px);
-  border-top: 1px solid #e8efec;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
+
+.driver-catalog-item-button:hover { background: #f5faf7; }
+.driver-catalog-details-label { display: block; margin-top: 8px; color: #55768d; font-size: 14px; }
+.driver-catalog-details { padding: 0 clamp(18px, 3vw, 32px) 22px; color: #29485f; }
+.driver-catalog-details p { margin: 0 0 8px; }
+.driver-catalog-details a { color: #245c48; }
 
 .driver-catalog-image {
   width: 112px;
@@ -80,7 +95,7 @@
 }
 
 @media (max-width: 600px) {
-  .driver-catalog-item {
+  .driver-catalog-item-button {
     grid-template-columns: 88px minmax(0, 1fr);
     gap: 14px;
   }

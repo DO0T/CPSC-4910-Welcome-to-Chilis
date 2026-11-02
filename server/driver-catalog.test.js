@@ -20,7 +20,7 @@ function setup({ role = 'Driver', drivers = [{
 
 test('loads only approved, available items from the active sponsor and calculates points', async () => {
   const { app, pool } = setup({ items: [
-    { id: 3, title: 'Reward A', image_url: 'https://example.com/a.jpg', ebay_price: '10.01', price_override: null, currency: 'USD' },
+    { id: 3, title: 'Reward A', image_url: 'https://example.com/a.jpg', item_url: 'https://example.com/item', media_rating: 'PG', ebay_price: '10.01', price_override: null, currency: 'USD' },
     { id: 4, title: 'Reward B', image_url: null, ebay_price: '10.00', price_override: '5.00', currency: 'USD' },
   ] });
   const response = await request(app).get('/api/driver/catalog?sponsorId=999');
@@ -29,8 +29,8 @@ test('loads only approved, available items from the active sponsor and calculate
     sponsorId: 7,
     companyName: 'Acme',
     items: [
-      { id: 3, title: 'Reward A', imageUrl: 'https://example.com/a.jpg', pointCost: 41 },
-      { id: 4, title: 'Reward B', imageUrl: '', pointCost: 20 },
+      { id: 3, title: 'Reward A', imageUrl: 'https://example.com/a.jpg', itemUrl: 'https://example.com/item', mediaRating: 'PG', pointCost: 41 },
+      { id: 4, title: 'Reward B', imageUrl: '', itemUrl: '', mediaRating: null, pointCost: 20 },
     ],
   });
   expect(pool.query.mock.calls[0][1]).toEqual([42]);

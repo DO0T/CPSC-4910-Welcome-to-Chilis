@@ -29,7 +29,7 @@ function createDriverCatalogRouter(pool) {
       }
 
       const [items] = await pool.query(
-        `SELECT id, title, image_url, ebay_price, price_override, currency
+        `SELECT id, title, image_url, item_url, media_rating, ebay_price, price_override, currency
          FROM SponsorCatalogItems
          WHERE sponsor_id = ? AND active = 1 AND is_available = 1
            AND family_friendly_confirmed = 1 AND currency = 'USD'
@@ -46,6 +46,8 @@ function createDriverCatalogRouter(pool) {
             id: item.id,
             title: item.title,
             imageUrl: item.image_url || '',
+            itemUrl: item.item_url || '',
+            mediaRating: item.media_rating || null,
             pointCost: pointCost(effectivePrice, driver.point_value),
           };
         }),
