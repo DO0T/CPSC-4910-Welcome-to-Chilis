@@ -1,0 +1,25 @@
+#root:has(.welcome-page), #root:has(.login-page) { width: 100%; max-width: none; border: 0; }
+.welcome-page, .login-page { box-sizing: border-box; width: 100%; min-height: 100vh; color: #29485f; background: #f2f7f5; color-scheme: light; text-align: left; }
+.welcome-shell, .login-shell { width: min(100% - 40px, 900px); margin: 0 auto; }
+.welcome-topbar, .login-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 32px 0; }
+.welcome-brand { color: #29485f; font-size: 17px; font-weight: 700; text-decoration: none; }
+.welcome-nav { display: flex; align-items: center; gap: 22px; }
+.welcome-nav a, .login-back { color: #496a7d; font-size: 14px; font-weight: 600; text-decoration: none; }
+.welcome-nav .welcome-nav-login, .login-back { border: 1px solid #d4e3dd; border-radius: 999px; padding: 10px 18px; background: #fff; }
+.welcome-card { overflow: hidden; margin-top: clamp(30px, 8vw, 90px); border-radius: 18px; background: #fff; }
+.welcome-card-main { padding: clamp(32px, 7vw, 72px); background: #e8f1ed; }
+.welcome-kicker { margin: 0 0 16px; color: #55768d; font-size: 15px; font-weight: 600; }
+.welcome-card h1 { max-width: 650px; margin: 0; color: #29485f; font-size: clamp(38px, 6vw, 60px); font-weight: 600; line-height: 1.12; letter-spacing: -.035em; }
+.welcome-intro { max-width: 540px; margin-top: 20px; color: #55768d; font-size: 18px; line-height: 1.6; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.welcome-button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1px solid transparent; border-radius: 999px; padding: 12px 24px; font: inherit; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.welcome-button-primary { background: #29485f; color: #fff; }
+.welcome-button-primary:hover { background: #1d394e; }
+.welcome-button-secondary { border-color: #c8dbd1; background: #fff; color: #29485f; }
+.welcome-button-secondary:hover, .welcome-nav-login:hover, .login-back:hover { background: #f5faf7; }
+.welcome-card-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 28px clamp(32px, 7vw, 72px); }
+.welcome-card-footer strong, .welcome-card-footer span { display: block; }
+.welcome-card-footer strong { margin-bottom: 4px; font-size: 16px; }
+.welcome-card-footer span { color: #55768d; font-size: 14px; line-height: 1.5; }
+.welcome-page a:focus-visible, .login-page a:focus-visible, .login-page button:focus-visible, .login-page input:focus-visible { outline: 3px solid #55768d; outline-offset: 3px; }
+@media (max-width: 550px) { .welcome-topbar, .login-topbar { padding: 24px 0; } .welcome-card { margin-top: 25px; } .welcome-card-footer { grid-template-columns: 1fr; gap: 18px; } .welcome-nav { gap: 12px; } }

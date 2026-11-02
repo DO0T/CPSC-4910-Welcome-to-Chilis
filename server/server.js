@@ -607,7 +607,7 @@ app.get("/api/about", async (req, res) => {
   }
 });
 
-app.get("/api/driver-points", async (req, res) => {
+app.get("/api/driver-points", requireLogin, requireAdmin, async (req, res) => {
   try {
     const query = `
       SELECT d.user_id AS driver_id, u.name AS driver_name, u.username AS driver_email,
@@ -630,7 +630,7 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
   if (
     driver_id == null ||
-    !Number.isFinite(numericChange) ||
+    !Number.isSafeInteger(numericChange) ||
     numericChange === 0 ||
     !reason ||
     !String(reason).trim()
@@ -638,6 +638,10 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
     return res.status(400).json({
       error: "driver_id, a non-zero point_change, and reason are required",
     });
+  }
+
+  if (!req.isAdmin && req.userRole !== 'Sponsor') {
+    return res.status(403).json({ error: 'Sponsor or admin access required' });
   }
 
   let connection;
@@ -659,11 +663,17 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
     const effectiveSponsorId =
       sponsor_id != null ? sponsor_id : driverRows[0].sponsor_id;
 
-    if (!req.isAdmin && driverRows[0].sponsor_id !== Number(effectiveSponsorId)) {
-      await connection.rollback();
-      return res.status(403).json({
-        error: "Driver does not belong to the specified sponsor organization",
-      });
+    if (!req.isAdmin) {
+      const [membership] = await connection.query(
+        `SELECT ds.driver_id FROM SponsorUsers su
+         JOIN DriverSponsorships ds ON ds.sponsor_id = su.sponsor_id
+         WHERE su.user_id = ? AND ds.driver_id = ? AND ds.sponsor_id = ? LIMIT 1`,
+        [req.userId, driver_id, effectiveSponsorId]
+      );
+      if (!membership.length) {
+        await connection.rollback();
+        return res.status(403).json({ error: "Driver does not belong to your sponsor organization" });
+      }
     }
 
     await connection.query(
@@ -706,16 +716,18 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
     await connection.commit();
 
-    const [rows] = await connection.query(
-      "SELECT total_points FROM Drivers WHERE user_id = ?;",
-      [driver_id]
-    );
+    const [rows] = req.isAdmin
+      ? await connection.query("SELECT total_points FROM Drivers WHERE user_id = ?;", [driver_id])
+      : await connection.query(
+        "SELECT COALESCE(SUM(point_change), 0) AS total_points FROM DriverPoints WHERE driver_id = ? AND sponsor_id = ?;",
+        [driver_id, effectiveSponsorId]
+      );
 
     res.status(200).json({
       message: "Driver points updated successfully",
       driver_id,
       point_change: numericChange,
-      total_points: rows[0].total_points,
+      total_points: Number(rows[0].total_points),
     });
   } catch (error) {
     if (connection) await connection.rollback();

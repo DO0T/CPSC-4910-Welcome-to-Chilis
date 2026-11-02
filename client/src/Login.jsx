@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import './welcome.css';
+import './Login.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
@@ -72,10 +74,15 @@ function Login() {
         ))}
       </div>
 
+      <div className="login-shell">
+      <header className="login-topbar"><Link className="welcome-brand" to="/">Welcome to Chili's</Link><Link className="login-back" to="/">Back to home</Link></header>
       <section className="login-card" aria-labelledby="login-title">
+        <div className="login-card-heading">
         <h1 id="login-title">Welcome back</h1>
         <p>Sign in to your account.</p>
+        </div>
 
+        <div className="login-card-body">
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
           <input
@@ -105,19 +112,23 @@ function Login() {
           {/* Button toggles the showPassword boolean state */}
           <button
             type="button"
+            className="login-password-toggle"
+            aria-pressed={showPassword}
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? "Hide" : "Show"} Password
           </button>
 
-          <button type="submit">Log in</button>
+          <button className="welcome-button welcome-button-primary login-submit" type="submit">Log in</button>
         </form>
 
         <Link to="/forgot-password">Forgot your password?</Link>
         <p>
           Don&apos;t have an account? <Link to="/signup">Sign up</Link>
         </p>
+        </div>
       </section>
+      </div>
     </main>
   );
 }
