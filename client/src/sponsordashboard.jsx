@@ -320,6 +320,7 @@ function SponsorDashboard() {
             <h1 className="dashboard-greeting">{sponsor.companyName}</h1>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
+            <Link className="sponsor-dashboard-link" to="/point-disputes">Point disputes</Link>
             <Link className="sponsor-dashboard-link" to="/sponsor-catalog">Manage catalog</Link>
             <button type="button" onClick={() => navigate('/editprofile')}>Edit profile</button>
             <LogoutButton />

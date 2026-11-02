@@ -20,6 +20,7 @@ const { createDriverApplicationsRouter } = require('./driver-applications');
 const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
+const { createPointDisputesRouter } = require('./point-disputes');
 const { loadEbaySecrets } = require('./ebay-secrets');
 
 async function verifyDatabaseConnection() {
@@ -150,6 +151,7 @@ app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter
 app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter(pool));
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
+app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
 
 function isValidPictureUrl(value) {
   if (!value) return true;
@@ -165,14 +167,14 @@ function isValidPictureUrl(value) {
 app.get("/api/session", requireLogin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT user_id, name, username, role, profile_picture_url FROM Users WHERE user_id = ? LIMIT 1;",
+      "SELECT user_id, name, username, role, profile_picture_url, point_alerts_enabled FROM Users WHERE user_id = ? LIMIT 1;",
       [req.userId]
     );
     const activeUser = rows[0] || null;
     return res.json({
       userId: req.userId,
       role: req.userRole,
-      pointAlertsEnabled: typeof pointAlertsEnabled === "boolean" ? pointAlertsEnabled : true,
+      pointAlertsEnabled: activeUser ? Number(activeUser.point_alerts_enabled) === 1 : true,
       isAdmin: req.isAdmin,
       impersonating: req.sessionData.impersonating || null,
       originalAdminId: req.sessionData.originalAdminId || null,

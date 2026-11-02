@@ -383,6 +383,7 @@ function DriverDashboard() {
             <h1 className="dashboard-greeting">Welcome back, {firstName}</h1>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
+            <Link to="/point-disputes">Point disputes</Link>
             <button type="button" onClick={() => navigate('/editprofile')}>
               Edit profile
             </button>

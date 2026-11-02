@@ -615,6 +615,7 @@ function AdminDashboard() {
             </p>
           </div>
           <nav className="admin-top-actions" aria-label="Admin navigation">
+            <button type="button" className="admin-btn-secondary" onClick={() => navigate('/point-disputes')}>Point disputes</button>
             <button
               type="button"
               className="admin-btn-secondary"
