@@ -105,6 +105,7 @@ function DriverDashboard() {
   const [memberships, setMemberships] = useState({ data: [], loading: true, error: '' });
   const [switchingSponsorId, setSwitchingSponsorId] = useState(null);
   const [switchNotice, setSwitchNotice] = useState({ text: '', error: false });
+  const [pointsVersion, setPointsVersion] = useState(0);
   const [checkingApplications, setCheckingApplications] = useState(false);
   const [applicationCheckError, setApplicationCheckError] = useState('');
   const [statusActionNotice, setStatusActionNotice] = useState({ text: '', error: false });
@@ -221,7 +222,7 @@ function DriverDashboard() {
       sponsorsController.abort();
       membershipsController.abort();
     };
-  }, [navigate]);
+  }, [navigate, pointsVersion]);
 
   async function checkApplicationStatus() {
     if (checkingApplications || sponsors.loading) return;
@@ -311,6 +312,10 @@ function DriverDashboard() {
       }
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to switch sponsors.');
+
+      setPoints({ data: null, loading: true, error: '' });
+      setActivity({ data: [], loading: true, error: '' });
+      setPointsVersion((version) => version + 1);
 
       setMemberships((current) => ({
         ...current,
@@ -496,6 +501,9 @@ function DriverDashboard() {
                 <p className="dashboard-points-delta">
                   {formatPoints(pointsDeltaThisWeek)} this week
                 </p>
+                {points.data.unassigned_points !== 0 && points.data.unassigned_points != null && (
+                  <p className="dashboard-points-delta">{points.data.unassigned_points.toLocaleString()} unassigned points are kept separately.</p>
+                )}
               </>
             )}
           </header>

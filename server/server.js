@@ -728,13 +728,18 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
 app.get("/api/driver/points", requireLogin, async (req, res) => {
   try {
-    const query = "SELECT total_points FROM Drivers WHERE user_id = ?;";
+    const query = `SELECT d.sponsor_id,
+      COALESCE((SELECT SUM(p.point_change) FROM DriverPoints p
+        WHERE p.driver_id = d.user_id AND p.sponsor_id = d.sponsor_id), 0) AS total_points,
+      COALESCE((SELECT SUM(p.point_change) FROM DriverPoints p
+        WHERE p.driver_id = d.user_id AND p.sponsor_id IS NULL), 0) AS unassigned_points
+      FROM Drivers d WHERE d.user_id = ?;`;
     const [rows] = await pool.query(query, [req.userId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Driver not found" });
     }
-    res.json({ total_points: rows[0].total_points });
+    res.json({ total_points: Number(rows[0].total_points), unassigned_points: Number(rows[0].unassigned_points), sponsor_id: rows[0].sponsor_id });
   } catch (error) {
     console.error("Error fetching driver points:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -748,8 +753,8 @@ app.get("/api/driver/points-history", requireLogin, async (req, res) => {
   try {
     const query =
       "SELECT id, point_change, reason, transaction_date FROM DriverPoints " +
-      "WHERE driver_id = ? ORDER BY transaction_date DESC LIMIT 20;";
-    const [rows] = await pool.query(query, [req.userId]);
+      "WHERE driver_id = ? AND sponsor_id = (SELECT sponsor_id FROM Drivers WHERE user_id = ?) ORDER BY transaction_date DESC LIMIT 20;";
+    const [rows] = await pool.query(query, [req.userId, req.userId]);
 
     res.json(rows);
   } catch (error) {
@@ -2259,6 +2264,16 @@ app.post("/api/bulk-upload", requireLogin, async (req, res) => {
             );
 
             summary.driversUpdated++;
+          }
+
+          // Bulk-created or updated drivers must also have a membership so their
+          // active sponsor and catalog remain consistent.
+          if (targetSponsorId != null) {
+            await connection.query(
+              `INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES (?, ?)
+               ON DUPLICATE KEY UPDATE sponsor_id = sponsor_id`,
+              [driverUserId, targetSponsorId]
+            );
           }
 
           // Sponsor Rule 4: If points are provided, add them to the driver
