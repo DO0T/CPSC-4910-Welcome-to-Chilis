@@ -69,7 +69,8 @@ test('drivers see their approved sponsors separately from applications', async (
       '/api/session': { role: 'Driver', impersonating: null },
       '/api/profile': { name: 'Taylor Driver' },
       '/api/driver/points': { total_points: activeSponsorId === 7 ? 50 : 20, unassigned_points: 5 },
-      '/api/driver/points-history': [],
+      '/api/driver/points-history': [{ id: 1, reason: activeSponsorId === 7 ? 'Acme activity' : 'Beacon activity', point_change: 10, transaction_date: new Date().toISOString() }],
+      '/api/driver/catalog': { sponsorId: activeSponsorId, companyName: activeSponsorId === 7 ? 'Acme' : 'Beacon', items: [{ id: activeSponsorId, title: activeSponsorId === 7 ? 'Acme reward' : 'Beacon reward', imageUrl: '', pointCost: 10 }] },
       '/api/driver/applications/sponsors': [],
       '/api/driver/sponsorships': [
         { sponsorId: 7, companyName: 'Acme', isActive: activeSponsorId === 7 },
@@ -83,6 +84,7 @@ test('drivers see their approved sponsors separately from applications', async (
   await page.goto('http://localhost:5173/driver-dashboard');
   const memberships = page.locator('section[aria-labelledby="driver-memberships-heading"]');
   await expect(page.locator('#points-heading')).toContainText('50');
+  await expect(page.getByText('Acme activity')).toBeVisible();
   await expect(page.getByText('5 unassigned points are kept separately.')).toBeVisible();
   await expect(memberships).toContainText('Acme');
   await expect(memberships).toContainText('Beacon');
@@ -90,7 +92,18 @@ test('drivers see their approved sponsors separately from applications', async (
   await expect(memberships.getByRole('link', { name: 'View catalog' })).toHaveAttribute('href', '/driver-catalog');
   await memberships.getByRole('button', { name: 'Switch to Beacon' }).click();
   await expect(page.locator('#points-heading')).toContainText('20');
+  await expect(page.getByText('Beacon activity')).toBeVisible();
+  await expect(page.getByText('Acme activity')).toHaveCount(0);
   await expect(memberships.getByRole('heading', { name: 'Beacon' }).locator('..')).toContainText('Current sponsor');
   await expect(memberships.getByRole('button', { name: 'Switch to Acme' })).toBeVisible();
   await expect(memberships.getByRole('status')).toContainText('Beacon is now your current sponsor.');
+  await memberships.getByRole('link', { name: 'View catalog' }).click();
+  await expect(page.getByRole('heading', { name: 'Beacon rewards' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Beacon reward', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Dashboard' }).click();
+  await page.getByRole('button', { name: 'Switch to Acme' }).click();
+  await expect(page.locator('#points-heading')).toContainText('50');
+  await expect(page.getByText('Acme activity')).toBeVisible();
+  await page.getByRole('link', { name: 'View catalog' }).click();
+  await expect(page.getByRole('heading', { name: 'Acme reward', exact: true })).toBeVisible();
 });
