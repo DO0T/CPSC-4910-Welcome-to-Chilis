@@ -2246,22 +2246,24 @@ app.post("/api/bulk-upload", requireLogin, async (req, res) => {
               [driverUserId]
             );
 
-            // If a Sponsor is uploading, verify the existing driver isn't affiliated with a different company
-            if (
-              isSponsorUploader &&
-              driverRows.length > 0 &&
-              driverRows[0].sponsor_id != null &&
-              driverRows[0].sponsor_id !== targetSponsorId
-            ) {
-              await connection.rollback();
-              errors.push({
-                line: lineNumber,
-                type: "Skipped",
-                content: line,
-                message: `Driver "${email}" is affiliated with another sponsor organization. Sponsors can only update drivers in their own organization. Line skipped.`,
-              });
-              summary.linesSkipped++;
-              continue;
+            if (isSponsorUploader) {
+              const [memberships] = await connection.query(
+                'SELECT sponsor_id FROM DriverSponsorships WHERE driver_id = ?', [driverUserId]
+              );
+              const activeSponsorId = driverRows[0]?.sponsor_id;
+              const belongsToSponsor = memberships.some((row) => Number(row.sponsor_id) === Number(targetSponsorId));
+              const hasOtherAffiliation = memberships.length > 0 || activeSponsorId != null;
+              if (hasOtherAffiliation && !belongsToSponsor && Number(activeSponsorId) !== Number(targetSponsorId)) {
+                await connection.rollback();
+                errors.push({
+                  line: lineNumber,
+                  type: "Skipped",
+                  content: line,
+                  message: `Driver "${email}" is affiliated with another sponsor organization. Sponsors can only update drivers in their own organization. Line skipped.`,
+                });
+                summary.linesSkipped++;
+                continue;
+              }
             }
 
             await connection.query(
@@ -2271,7 +2273,7 @@ app.post("/api/bulk-upload", requireLogin, async (req, res) => {
 
             await connection.query(
               `INSERT INTO Drivers (user_id, sponsor_id, total_points) VALUES (?, ?, 0)
-               ON DUPLICATE KEY UPDATE sponsor_id = VALUES(sponsor_id);`,
+               ON DUPLICATE KEY UPDATE sponsor_id = ${isSponsorUploader ? 'COALESCE(sponsor_id, VALUES(sponsor_id))' : 'VALUES(sponsor_id)'};`,
               [driverUserId, targetSponsorId]
             );
 
