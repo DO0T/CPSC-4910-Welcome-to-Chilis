@@ -184,7 +184,7 @@ test.describe.serial('Application testing', () => {
         await page.getByLabel('Password').pressSequentially('password');
         await page.getByRole('button', {name: 'log in'}).click();
         let appSection = await page.locator('.dashboard-card').filter({has: page.getByRole('heading', {name: 'Apply to a sponsor'})});
-        if(browserName == 'webkit'){
+        if(appSection.getByRole('button', {name: 'Show more'}).isEnabled()){
             await appSection.getByRole('button', {name: 'Show more'}).click()
         }
         await expect(appSection).toBeVisible();
@@ -197,7 +197,7 @@ test.describe.serial('Application testing', () => {
         await page.getByLabel('Email').pressSequentially('Belle@email.com');
         await page.getByLabel('Password').pressSequentially('password');
         await page.getByRole('button', {name: 'log in'}).click();
-        if(browserName == 'webkit'){
+        if(appSection.getByRole('button', {name: 'Show more'}).isEnabled()){
             await appSection.getByRole('button', {name: 'Show more'}).click()
         }
         await sponsor.getByRole('button', {name: 'Apply to sponsor'}).click();

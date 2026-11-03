@@ -47,8 +47,6 @@ test.describe.serial('Driver tests', () => {
     await expect(page).toHaveURL('http://localhost:5173/login');
     });
 
-
-
     test('Duplicate Email', async ({ page, browserName }) => {
     const email = `duplicate-${browserName}@test.example`;
     await page.goto('http://localhost:5173/');
