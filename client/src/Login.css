@@ -13,3 +13,4 @@
 .login-card-body > a, .login-card-body p { font-size: 14px; }
 .login-card-body a { color: #315e73; font-weight: 600; }
 .login-card-body p { margin-top: 18px; color: #55768d; }
+.login-card-body .login-error { margin: 0 0 18px; padding: 12px 14px; border-radius: 10px; background: #fff0ee; color: #9e2525; font-weight: 600; }

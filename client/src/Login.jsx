@@ -11,6 +11,7 @@ function Login() {
   const [password, setPassword] = useState('');
 
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const navigate = useNavigate();
 
@@ -39,6 +40,7 @@ function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setLoginError('');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/login`, {
@@ -57,10 +59,13 @@ function Login() {
         if (data.role === "Admin") navigate("/admin-dashboard");
         else if (data.role === "Sponsor") navigate("/sponsor-dashboard");
         else if (data.role === "Driver") navigate("/driver-dashboard");
+      } else {
+        // Shows "Invalid username or password" (or the no-role message) from the server
+        setLoginError(data.message || "Invalid username or password");
       }
     } catch (error) {
       console.error("Login request failed:", error);
-      alert("An error occurred while attempting to log in.");
+      setLoginError("Could not reach the server. Please try again.");
     }
   };
 
@@ -95,6 +100,7 @@ function Login() {
             autoComplete="email"
             required
           />
+          {loginError && <p className="login-error" role="alert">{loginError}</p>}
 
           <label htmlFor="password">Password</label>
           {/* The type attribute dynamically evaluates to text or password to allow the driver to hide their password */}

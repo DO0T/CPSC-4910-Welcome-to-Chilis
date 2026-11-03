@@ -21,6 +21,7 @@ const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
 const { createPointDisputesRouter } = require('./point-disputes');
+const { createSponsorUsersRouter, getSponsorOrgForUser, driverBelongsToSponsor } = require('./sponsor-users');
 const { loadEbaySecrets } = require('./ebay-secrets');
 
 async function verifyDatabaseConnection() {
@@ -152,6 +153,7 @@ app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
 app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
+app.use('/api/sponsor', requireLogin, createSponsorUsersRouter(pool, createAuditLog));
 
 function isValidPictureUrl(value) {
   if (!value) return true;
@@ -187,6 +189,8 @@ app.get("/api/session", requireLogin, async (req, res) => {
           profilePictureUrl: activeUser.profile_picture_url,
         }
         : null,
+      sponsorImpersonating: req.sessionData.sponsorImpersonating || null,
+      originalSponsorUserId: req.sessionData.originalSponsorUserId || null,
     });
   } catch (error) {
     console.error("Session fetch error:", error);
@@ -662,17 +666,20 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
       return res.status(404).json({ error: "Driver not found" });
     }
 
-    const effectiveSponsorId =
-      sponsor_id != null ? sponsor_id : driverRows[0].sponsor_id;
+    let effectiveSponsorId =
+      sponsor_id != null ? Number(sponsor_id) : driverRows[0].sponsor_id;
 
     if (!req.isAdmin) {
-      const [membership] = await connection.query(
-        `SELECT ds.driver_id FROM SponsorUsers su
-         JOIN DriverSponsorships ds ON ds.sponsor_id = su.sponsor_id
-         WHERE su.user_id = ? AND ds.driver_id = ? AND ds.sponsor_id = ? LIMIT 1`,
-        [req.userId, driver_id, effectiveSponsorId]
-      );
-      if (!membership.length) {
+      // Sponsors always award/deduct points on behalf of their OWN organization,
+      // even if the driver's currently active sponsor is a different one.
+      const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
+      if (!sponsorOrg) {
+        await connection.rollback();
+        return res.status(403).json({ error: "Your sponsor account is not linked to an organization" });
+      }
+      effectiveSponsorId = sponsorOrg.sponsor_id;
+
+      if (!(await driverBelongsToSponsor(connection, driver_id, effectiveSponsorId))) {
         await connection.rollback();
         return res.status(403).json({ error: "Driver does not belong to your sponsor organization" });
       }
@@ -1282,9 +1289,13 @@ app.put(
         ]);
       }
 
-      // Update or clear any active sessions belonging to this user
       for (const [tokenKey, sess] of sessions.entries()) {
-        if (sess.userId === targetUserId && !sess.originalAdminId) {
+        // A sponsor who is currently viewing as a driver gets logged out if their own account changes
+        if (sess.originalSponsorUserId === targetUserId) {
+          sessions.delete(tokenKey);
+          continue;
+        }
+        if (sess.userId === targetUserId && !sess.originalAdminId && !sess.originalSponsorUserId) {
           if (nextRole === "None") {
             sessions.delete(tokenKey);
           } else {
@@ -1350,7 +1361,10 @@ app.delete(
 
       // Invalidate active sessions for the user whose role was removed
       for (const [tokenKey, sess] of sessions.entries()) {
-        if (sess.userId === targetUserId && !sess.originalAdminId) {
+        if (
+          (sess.userId === targetUserId && !sess.originalAdminId) ||
+          sess.originalSponsorUserId === targetUserId
+        ) {
           sessions.delete(tokenKey);
         }
       }
@@ -1565,6 +1579,8 @@ app.post(
       }
 
       const session = req.sessionData;
+      delete session.originalSponsorUserId;
+      delete session.sponsorImpersonating;
       session.originalAdminId = session.originalAdminId || session.userId;
       session.originalRole = "Admin";
       session.userId = targetUser.user_id;
@@ -1603,6 +1619,8 @@ app.post(
         delete session.originalRole;
         delete session.impersonating;
       }
+      delete session.originalSponsorUserId;
+      delete session.sponsorImpersonating;
 
       return res.json({
         message: "Returned to Administrator view",
