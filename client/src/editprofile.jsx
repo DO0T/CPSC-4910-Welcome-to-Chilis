@@ -113,7 +113,15 @@ function EditProfile() {
         return;
       }
 
-      setProfile(data.profile);
+      // Keep fields the server doesn't send back (like role), so the point-alerts card stays visible
+      setProfile((current) => ({
+        ...current,
+        ...data.profile,
+        profilePictureUrl: data.profile.profilePictureUrl || '',
+        pointAlertsEnabled: typeof data.profile.pointAlertsEnabled === 'boolean'
+          ? data.profile.pointAlertsEnabled
+          : current.pointAlertsEnabled,
+      }));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

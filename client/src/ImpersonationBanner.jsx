@@ -4,8 +4,42 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
 
+const bannerStyle = {
+  background: '#29485f',
+  color: '#ffffff',
+  padding: '10px 20px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '12px',
+  fontSize: '14px',
+  borderBottom: '2px solid #55768d',
+};
+
+const outlineButtonStyle = {
+  background: 'transparent',
+  color: '#fff',
+  border: '1px solid #cbd9d7',
+  borderRadius: '999px',
+  padding: '6px 14px',
+  cursor: 'pointer',
+  fontWeight: 600,
+};
+
+const solidButtonStyle = {
+  background: '#e8f1ed',
+  color: '#29485f',
+  border: 'none',
+  borderRadius: '999px',
+  padding: '6px 16px',
+  cursor: 'pointer',
+  fontWeight: 700,
+};
+
 function ImpersonationBanner() {
   const [impersonating, setImpersonating] = useState(null);
+  const [sponsorImpersonating, setSponsorImpersonating] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -14,6 +48,7 @@ function ImpersonationBanner() {
     const token = sessionStorage.getItem('authToken');
     if (!token) {
       setImpersonating(null);
+      setSponsorImpersonating(null);
       return;
     }
 
@@ -25,6 +60,7 @@ function ImpersonationBanner() {
       .then((data) => {
         if (active && data) {
           setImpersonating(data.impersonating || null);
+          setSponsorImpersonating(data.sponsorImpersonating || null);
           if (data.role) {
             sessionStorage.setItem('userRole', data.role);
           }
@@ -37,7 +73,7 @@ function ImpersonationBanner() {
     };
   }, [location.pathname]);
 
-  if (!impersonating) return null;
+  if (!impersonating && !sponsorImpersonating) return null;
 
   const handleReturnToAdmin = async () => {
     setRestoring(true);
@@ -50,6 +86,7 @@ function ImpersonationBanner() {
       if (response.ok) {
         sessionStorage.setItem('userRole', 'Admin');
         setImpersonating(null);
+        setSponsorImpersonating(null);
         navigate('/admin-dashboard');
       }
     } catch (error) {
@@ -59,23 +96,48 @@ function ImpersonationBanner() {
     }
   };
 
+  const handleReturnToSponsor = async () => {
+    setRestoring(true);
+    try {
+      const token = sessionStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/sponsor/stop-impersonating`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        sessionStorage.setItem('userRole', 'Sponsor');
+        setSponsorImpersonating(null);
+        navigate('/sponsor-drivers');
+      }
+    } catch (error) {
+      console.error('Failed to exit driver view:', error);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  // A sponsor (or an admin acting as a sponsor) is currently viewing the site as one of their drivers.
+  if (sponsorImpersonating) {
+    return (
+      <div role="region" aria-label="Sponsor view-as mode banner" style={bannerStyle}>
+        <div>
+          <strong>Sponsor View-As Mode:</strong> Currently viewing and acting as{' '}
+          <strong>{sponsorImpersonating.name}</strong> (Driver · {sponsorImpersonating.email})
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="button" onClick={() => navigate('/driver-dashboard')} style={outlineButtonStyle}>
+            Driver Dashboard
+          </button>
+          <button type="button" onClick={handleReturnToSponsor} disabled={restoring} style={solidButtonStyle}>
+            {restoring ? 'Returning…' : 'Return to Sponsor View'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      role="region"
-      aria-label="Admin view-as mode banner"
-      style={{
-        background: '#29485f',
-        color: '#ffffff',
-        padding: '10px 20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '12px',
-        fontSize: '14px',
-        borderBottom: '2px solid #55768d',
-      }}
-    >
+    <div role="region" aria-label="Admin view-as mode banner" style={bannerStyle}>
       <div>
         <strong>Admin View-As Mode:</strong> Currently viewing and acting as{' '}
         <strong>{impersonating.name}</strong> ({impersonating.role} · {impersonating.email})
@@ -90,32 +152,11 @@ function ImpersonationBanner() {
                 : '/driver-dashboard'
             )
           }
-          style={{
-            background: 'transparent',
-            color: '#fff',
-            border: '1px solid #cbd9d7',
-            borderRadius: '999px',
-            padding: '6px 14px',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
+          style={outlineButtonStyle}
         >
           {impersonating.role} Dashboard
         </button>
-        <button
-          type="button"
-          onClick={handleReturnToAdmin}
-          disabled={restoring}
-          style={{
-            background: '#e8f1ed',
-            color: '#29485f',
-            border: 'none',
-            borderRadius: '999px',
-            padding: '6px 16px',
-            cursor: 'pointer',
-            fontWeight: 700,
-          }}
-        >
+        <button type="button" onClick={handleReturnToAdmin} disabled={restoring} style={solidButtonStyle}>
           {restoring ? 'Returning…' : 'Return to Admin Panel'}
         </button>
       </div>

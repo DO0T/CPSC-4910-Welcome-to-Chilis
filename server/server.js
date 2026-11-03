@@ -21,6 +21,7 @@ const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
 const { createPointDisputesRouter } = require('./point-disputes');
+const { createSponsorUsersRouter, getSponsorOrgForUser, driverBelongsToSponsor } = require('./sponsor-users');
 const { loadEbaySecrets } = require('./ebay-secrets');
 
 async function verifyDatabaseConnection() {
@@ -152,6 +153,7 @@ app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
 app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
+app.use('/api/sponsor', requireLogin, createSponsorUsersRouter(pool, createAuditLog));
 
 function isValidPictureUrl(value) {
   if (!value) return true;
@@ -187,6 +189,8 @@ app.get("/api/session", requireLogin, async (req, res) => {
           profilePictureUrl: activeUser.profile_picture_url,
         }
         : null,
+      sponsorImpersonating: req.sessionData.sponsorImpersonating || null,
+      originalSponsorUserId: req.sessionData.originalSponsorUserId || null,
     });
   } catch (error) {
     console.error("Session fetch error:", error);
@@ -291,13 +295,13 @@ async function recordFailedLogin(email, details) {
      WHERE username = ?
        AND event_category = 'Login Attempt'
        AND status = 'Failure'
-       AND event_date >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE;`,
+       AND event_date >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE;`,
     [email]
   );
 
   if (Number(rows[0]?.failure_count || 0) <= 20) return;
 
-  const message = `More than 20 failed login attempts in one minute for: ${email}`;
+  const message = `More than 20 failed login attempts in 5 minutes for: ${email}`;
   await pool.query(
     `INSERT INTO UserAlerts (user_id, alert_type, message)
      SELECT admin.user_id, 'SECURITY ALERT', ?
@@ -308,7 +312,7 @@ async function recordFailedLogin(email, details) {
          FROM UserAlerts
          WHERE alert_type = 'SECURITY ALERT'
            AND message = ?
-           AND created_at >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+           AND created_at >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE
        );`,
     [message, message]
   );
@@ -401,7 +405,8 @@ app.post("/api/forgot-password", async (req, res) => {
         expiresAt: Date.now() + RESET_TOKEN_DURATION_MS,
       });
 
-      const frontendBase = process.env.FRONTEND_URL || "http://localhost:5173";
+      // Strip any trailing slash so the link never ends up with "//reset-password"
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
       const resetLink = `${frontendBase}/reset-password?token=${resetToken}`;
 
       await transporter.sendMail({
@@ -662,17 +667,20 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
       return res.status(404).json({ error: "Driver not found" });
     }
 
-    const effectiveSponsorId =
-      sponsor_id != null ? sponsor_id : driverRows[0].sponsor_id;
+    let effectiveSponsorId =
+      sponsor_id != null ? Number(sponsor_id) : driverRows[0].sponsor_id;
 
     if (!req.isAdmin) {
-      const [membership] = await connection.query(
-        `SELECT ds.driver_id FROM SponsorUsers su
-         JOIN DriverSponsorships ds ON ds.sponsor_id = su.sponsor_id
-         WHERE su.user_id = ? AND ds.driver_id = ? AND ds.sponsor_id = ? LIMIT 1`,
-        [req.userId, driver_id, effectiveSponsorId]
-      );
-      if (!membership.length) {
+      // Sponsors always award/deduct points on behalf of their OWN organization,
+      // even if the driver's currently active sponsor is a different one.
+      const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
+      if (!sponsorOrg) {
+        await connection.rollback();
+        return res.status(403).json({ error: "Your sponsor account is not linked to an organization" });
+      }
+      effectiveSponsorId = sponsorOrg.sponsor_id;
+
+      if (!(await driverBelongsToSponsor(connection, driver_id, effectiveSponsorId))) {
         await connection.rollback();
         return res.status(403).json({ error: "Driver does not belong to your sponsor organization" });
       }
@@ -1282,9 +1290,13 @@ app.put(
         ]);
       }
 
-      // Update or clear any active sessions belonging to this user
       for (const [tokenKey, sess] of sessions.entries()) {
-        if (sess.userId === targetUserId && !sess.originalAdminId) {
+        // A sponsor who is currently viewing as a driver gets logged out if their own account changes
+        if (sess.originalSponsorUserId === targetUserId) {
+          sessions.delete(tokenKey);
+          continue;
+        }
+        if (sess.userId === targetUserId && !sess.originalAdminId && !sess.originalSponsorUserId) {
           if (nextRole === "None") {
             sessions.delete(tokenKey);
           } else {
@@ -1350,7 +1362,10 @@ app.delete(
 
       // Invalidate active sessions for the user whose role was removed
       for (const [tokenKey, sess] of sessions.entries()) {
-        if (sess.userId === targetUserId && !sess.originalAdminId) {
+        if (
+          (sess.userId === targetUserId && !sess.originalAdminId) ||
+          sess.originalSponsorUserId === targetUserId
+        ) {
           sessions.delete(tokenKey);
         }
       }
@@ -1406,12 +1421,30 @@ app.post(
       }
 
       const driver = rows[0];
-      const previousSponsorId = driver.sponsor_id;
-      const previousCompany = driver.company_name || "Sponsor Organization";
+      let previousSponsorId = driver.sponsor_id;
+      let previousCompany = driver.company_name || "Sponsor Organization";
 
+      // Sponsors can only drop drivers from their OWN organization
+      if (!req.isAdmin) {
+        const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
+        if (!sponsorOrg || !(await driverBelongsToSponsor(connection, driverId, sponsorOrg.sponsor_id))) {
+          await connection.rollback();
+          return res.status(403).json({ message: "Driver does not belong to your sponsor organization" });
+        }
+        previousSponsorId = sponsorOrg.sponsor_id;
+        previousCompany = sponsorOrg.company_name;
+      }
+
+      // Remove the membership too, otherwise the driver can switch right back to this sponsor
       await connection.query(
-        "UPDATE Drivers SET sponsor_id = NULL WHERE user_id = ?;",
-        [driverId]
+        "DELETE FROM DriverSponsorships WHERE driver_id = ? AND sponsor_id = ?;",
+        [driverId, previousSponsorId]
+      );
+
+      // Only clear the active sponsor if it is the one being dropped
+      await connection.query(
+        "UPDATE Drivers SET sponsor_id = NULL WHERE user_id = ? AND sponsor_id = ?;",
+        [driverId, previousSponsorId]
       );
 
       await createAuditLog(
@@ -1468,7 +1501,19 @@ app.post(
           .status(403)
           .json({ message: "Sponsor or Admin access required" });
       }
-      if (!sponsorId) {
+
+      // Sponsors can only add drivers to their OWN organization
+      let targetSponsorId = Number(sponsorId);
+      if (!req.isAdmin) {
+        const sponsorOrg = await getSponsorOrgForUser(pool, req.userId);
+        if (!sponsorOrg) {
+          return res
+            .status(403)
+            .json({ message: "Your sponsor account is not linked to an organization" });
+        }
+        targetSponsorId = sponsorOrg.sponsor_id;
+      }
+      if (!Number.isInteger(targetSponsorId) || targetSponsorId < 1) {
         return res
           .status(400)
           .json({ message: "A Sponsor Organization must be selected" });
@@ -1492,14 +1537,21 @@ app.post(
           VALUES (?, ?, 0)
           ON DUPLICATE KEY UPDATE sponsor_id = VALUES(sponsor_id);
         `,
-        [driverId, Number(sponsorId)]
+        [driverId, targetSponsorId]
+      );
+
+      // Membership row is required for the driver's catalog and sponsor switching
+      await connection.query(
+        `INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE sponsor_id = sponsor_id;`,
+        [driverId, targetSponsorId]
       );
 
       await createAuditLog(
         driverRows[0].username,
         "Driver Application",
         "ACCEPTED",
-        `Driver ID: ${driverId}; Sponsor ID: ${sponsorId}; Reason: ${reason}`,
+        `Driver ID: ${driverId}; Sponsor ID: ${targetSponsorId}; Reason: ${reason}`,
         connection
       );
 
@@ -1565,6 +1617,8 @@ app.post(
       }
 
       const session = req.sessionData;
+      delete session.originalSponsorUserId;
+      delete session.sponsorImpersonating;
       session.originalAdminId = session.originalAdminId || session.userId;
       session.originalRole = "Admin";
       session.userId = targetUser.user_id;
@@ -1603,6 +1657,8 @@ app.post(
         delete session.originalRole;
         delete session.impersonating;
       }
+      delete session.originalSponsorUserId;
+      delete session.sponsorImpersonating;
 
       return res.json({
         message: "Returned to Administrator view",

@@ -1,0 +1,151 @@
+.sponsor-tools-notice {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #e8f1ed;
+  color: #245c48;
+  font-weight: 600;
+  text-align: left;
+}
+
+.sponsor-tools-error {
+  background: #fff0ee;
+  color: #8a3030;
+}
+
+.sponsor-tools-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sponsor-search {
+  min-width: 220px;
+  padding: 10px 14px;
+  border: 1px solid #c9dcd5;
+  border-radius: 999px;
+  background: #fff;
+  color: #29485f;
+  font: inherit;
+  font-size: 14px;
+}
+
+.sponsor-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 24px clamp(18px, 3vw, 32px);
+  text-align: left;
+}
+
+.sponsor-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sponsor-form-wide {
+  grid-column: 1 / -1;
+}
+
+.sponsor-form-field label {
+  color: #29485f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sponsor-form-field input,
+.sponsor-form-field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd9d7;
+  border-radius: 8px;
+  background: #fff;
+  color: #29485f;
+  font: inherit;
+  font-size: 14px;
+}
+
+.sponsor-form-field input:focus-visible,
+.sponsor-form-field select:focus-visible,
+.sponsor-search:focus-visible {
+  outline: 2px solid #55768d;
+  outline-offset: 2px;
+}
+
+.sponsor-form-footer {
+  grid-column: 1 / -1;
+}
+
+.sponsor-primary-button {
+  border: 1px solid #29485f;
+  border-radius: 999px;
+  background: #29485f;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.sponsor-primary-button:hover:not(:disabled) {
+  background: #1f394c;
+}
+
+.sponsor-primary-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.sponsor-driver-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sponsor-driver-summary .sponsor-points {
+  text-align: right;
+}
+
+.sponsor-history-title {
+  margin: 18px 0 8px;
+  color: #29485f;
+  font-size: 15px;
+}
+
+.sponsor-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sponsor-history-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #dce7e3;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .sponsor-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sponsor-driver-summary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sponsor-driver-summary .sponsor-points {
+    text-align: left;
+  }
+}

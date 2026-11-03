@@ -7,6 +7,8 @@ import DriverDashboard from './driverdashboard.jsx';
 import DriverCatalog from './drivercatalog.jsx';
 import SponsorDashboard from './sponsordashboard.jsx';
 import SponsorCatalog from './sponsorcatalog.jsx';
+import SponsorDrivers from './sponsordrivers.jsx';
+import SponsorOrganization from './sponsororganization.jsx';
 import AdminDashboard from './admindashboard.jsx';
 import ImpersonationBanner from './ImpersonationBanner.jsx';
 import About from './about.jsx';
@@ -30,6 +32,8 @@ function App() {
       <Route path="/driver-catalog" element={<DriverCatalog />} />
       <Route path="/sponsor-dashboard" element={<SponsorDashboard />} />
       <Route path="/sponsor-catalog" element={<SponsorCatalog />} />
+      <Route path="/sponsor-drivers" element={<SponsorDrivers />} />
+      <Route path="/sponsor-organization" element={<SponsorOrganization />} />
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />

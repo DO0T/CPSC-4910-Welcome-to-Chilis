@@ -321,6 +321,8 @@ function SponsorDashboard() {
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
             <Link className="sponsor-dashboard-link" to="/point-disputes">Point disputes</Link>
+            <Link className="sponsor-dashboard-link" to="/sponsor-drivers">Drivers &amp; points</Link>
+            <Link className="sponsor-dashboard-link" to="/sponsor-organization">Sponsor info</Link>
             <Link className="sponsor-dashboard-link" to="/sponsor-catalog">Manage catalog</Link>
             <button type="button" onClick={() => navigate('/editprofile')}>Edit profile</button>
             <LogoutButton />
