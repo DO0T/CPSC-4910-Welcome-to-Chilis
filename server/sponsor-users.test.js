@@ -243,3 +243,61 @@ test('sponsor points always go to the sponsor\'s own organization', async () => 
   const ledgerCall = connection.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO DriverPoints'));
   expect(ledgerCall[1]).toEqual([12, 7, -25, 'Speeding']);
 });
+
+test('sponsor cannot drop a driver from another organization', async () => {
+  const token = await loginAsSponsor();
+
+  connection.query
+    .mockResolvedValueOnce([[{ user_id: 30, sponsor_id: 3, name: 'Other', email: 'other@example.com', company_name: 'Other Co' }]])
+    .mockResolvedValueOnce([[SPONSOR_ORG]])
+    .mockResolvedValueOnce([[]]); // not a member of org 7
+
+  const response = await request(app)
+    .post('/api/admin/drivers/30/drop')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ reason: 'test' });
+
+  expect(response.statusCode).toBe(403);
+  expect(connection.query.mock.calls.some(([sql]) => sql.includes('UPDATE Drivers'))).toBe(false);
+});
+
+test('sponsor dropping a driver removes the membership for their own organization', async () => {
+  const token = await loginAsSponsor();
+
+  connection.query
+    .mockResolvedValueOnce([[{ user_id: 12, sponsor_id: 7, name: 'Dana', email: 'driver@example.com', company_name: 'Acme Trucking' }]])
+    .mockResolvedValueOnce([[SPONSOR_ORG]])
+    .mockResolvedValueOnce([[{ found: 1 }]])
+    .mockResolvedValueOnce([{}]) // delete membership
+    .mockResolvedValueOnce([{}]) // update drivers
+    .mockResolvedValueOnce([{}]); // audit log
+
+  const response = await request(app)
+    .post('/api/admin/drivers/12/drop')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ reason: 'Left the company' });
+
+  expect(response.statusCode).toBe(200);
+  const deleteCall = connection.query.mock.calls.find(([sql]) => sql.includes('DELETE FROM DriverSponsorships'));
+  expect(deleteCall[1]).toEqual([12, 7]);
+});
+
+test('sponsor assigning a driver always uses their own organization', async () => {
+  const token = await loginAsSponsor();
+
+  pool.query.mockResolvedValueOnce([[SPONSOR_ORG]]);
+  connection.query
+    .mockResolvedValueOnce([[{ user_id: 12, name: 'Dana', username: 'driver@example.com' }]])
+    .mockResolvedValueOnce([{}]) // Drivers
+    .mockResolvedValueOnce([{}]) // DriverSponsorships
+    .mockResolvedValueOnce([{}]); // audit
+
+  const response = await request(app)
+    .post('/api/admin/drivers/12/assign')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ sponsorId: 999 });
+
+  expect(response.statusCode).toBe(200);
+  const membership = connection.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO DriverSponsorships'));
+  expect(membership[1]).toEqual([12, 7]);
+});

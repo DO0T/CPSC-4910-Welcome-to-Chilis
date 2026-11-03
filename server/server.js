@@ -295,13 +295,13 @@ async function recordFailedLogin(email, details) {
      WHERE username = ?
        AND event_category = 'Login Attempt'
        AND status = 'Failure'
-       AND event_date >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE;`,
+       AND event_date >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE;`,
     [email]
   );
 
   if (Number(rows[0]?.failure_count || 0) <= 20) return;
 
-  const message = `More than 20 failed login attempts in one minute for: ${email}`;
+  const message = `More than 20 failed login attempts in 5 minutes for: ${email}`;
   await pool.query(
     `INSERT INTO UserAlerts (user_id, alert_type, message)
      SELECT admin.user_id, 'SECURITY ALERT', ?
@@ -312,7 +312,7 @@ async function recordFailedLogin(email, details) {
          FROM UserAlerts
          WHERE alert_type = 'SECURITY ALERT'
            AND message = ?
-           AND created_at >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
+           AND created_at >= UTC_TIMESTAMP() - INTERVAL 5 MINUTE
        );`,
     [message, message]
   );
@@ -1420,12 +1420,30 @@ app.post(
       }
 
       const driver = rows[0];
-      const previousSponsorId = driver.sponsor_id;
-      const previousCompany = driver.company_name || "Sponsor Organization";
+      let previousSponsorId = driver.sponsor_id;
+      let previousCompany = driver.company_name || "Sponsor Organization";
 
+      // Sponsors can only drop drivers from their OWN organization
+      if (!req.isAdmin) {
+        const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
+        if (!sponsorOrg || !(await driverBelongsToSponsor(connection, driverId, sponsorOrg.sponsor_id))) {
+          await connection.rollback();
+          return res.status(403).json({ message: "Driver does not belong to your sponsor organization" });
+        }
+        previousSponsorId = sponsorOrg.sponsor_id;
+        previousCompany = sponsorOrg.company_name;
+      }
+
+      // Remove the membership too, otherwise the driver can switch right back to this sponsor
       await connection.query(
-        "UPDATE Drivers SET sponsor_id = NULL WHERE user_id = ?;",
-        [driverId]
+        "DELETE FROM DriverSponsorships WHERE driver_id = ? AND sponsor_id = ?;",
+        [driverId, previousSponsorId]
+      );
+
+      // Only clear the active sponsor if it is the one being dropped
+      await connection.query(
+        "UPDATE Drivers SET sponsor_id = NULL WHERE user_id = ? AND sponsor_id = ?;",
+        [driverId, previousSponsorId]
       );
 
       await createAuditLog(
@@ -1482,7 +1500,19 @@ app.post(
           .status(403)
           .json({ message: "Sponsor or Admin access required" });
       }
-      if (!sponsorId) {
+
+      // Sponsors can only add drivers to their OWN organization
+      let targetSponsorId = Number(sponsorId);
+      if (!req.isAdmin) {
+        const sponsorOrg = await getSponsorOrgForUser(pool, req.userId);
+        if (!sponsorOrg) {
+          return res
+            .status(403)
+            .json({ message: "Your sponsor account is not linked to an organization" });
+        }
+        targetSponsorId = sponsorOrg.sponsor_id;
+      }
+      if (!Number.isInteger(targetSponsorId) || targetSponsorId < 1) {
         return res
           .status(400)
           .json({ message: "A Sponsor Organization must be selected" });
@@ -1506,14 +1536,21 @@ app.post(
           VALUES (?, ?, 0)
           ON DUPLICATE KEY UPDATE sponsor_id = VALUES(sponsor_id);
         `,
-        [driverId, Number(sponsorId)]
+        [driverId, targetSponsorId]
+      );
+
+      // Membership row is required for the driver's catalog and sponsor switching
+      await connection.query(
+        `INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE sponsor_id = sponsor_id;`,
+        [driverId, targetSponsorId]
       );
 
       await createAuditLog(
         driverRows[0].username,
         "Driver Application",
         "ACCEPTED",
-        `Driver ID: ${driverId}; Sponsor ID: ${sponsorId}; Reason: ${reason}`,
+        `Driver ID: ${driverId}; Sponsor ID: ${targetSponsorId}; Reason: ${reason}`,
         connection
       );
 

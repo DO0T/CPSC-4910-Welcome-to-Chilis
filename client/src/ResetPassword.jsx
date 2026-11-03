@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:5000" : "http://52.23.134.146:5000");
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -29,8 +31,7 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/api/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, newPassword }),
