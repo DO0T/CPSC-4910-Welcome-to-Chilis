@@ -5,6 +5,7 @@ test.describe.serial('Admin tests', () => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
         const emailsponsor = `admintestingsponsor-${browserName}@test.example`;
         const updatedEmailSponsor = `admintestedsponsro-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Sign Up' }).click();
         await page.getByLabel('Name').pressSequentially('John');
@@ -16,7 +17,7 @@ test.describe.serial('Admin tests', () => {
         await page.getByRole('link', { name: 'Sign Up' }).click();
         await page.getByRole('radio', {name: 'Sponsor'}).check();
         await page.getByLabel('Full name').pressSequentially('Jane');
-        await page.getByLabel('Company name', {exact : true}).pressSequentially('clemson');
+        await page.getByLabel('Company name', {exact : true}).pressSequentially(testsponsor);
         await page.getByLabel('Email').pressSequentially(emailsponsor);
         await page.getByLabel('Password', {exact : true}).pressSequentially('password');
         await page.getByLabel('Confirm password', {exact : true}).pressSequentially('password');
@@ -107,6 +108,7 @@ test.describe.serial('Admin tests', () => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
         const emailsponsor = `admintestingsponsor-${browserName}@test.example`;
         const updatedEmailSponsor = `admintestedsponsro-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Login' }).click();
         await page.getByLabel('Email').fill('admin@email.com');
@@ -115,9 +117,9 @@ test.describe.serial('Admin tests', () => {
         let row = page.locator('table.admin-table tbody tr').filter({ hasText: updatedEmaildriver});
         await expect(row.locator('td strong')).toHaveText('Unassigned')
         await row.getByRole('button',{name: 'Edit / Role'}).click();
-        await page.locator('#edit-sponsor').selectOption('clemson')
+        await page.locator('#edit-sponsor').selectOption(testsponsor)
         await page.getByRole('button', {name: 'Save Account Changes'}).click();
-        await expect(row.locator('td strong')).toHaveText('clemson')
+        await expect(row.locator('td strong')).toHaveText(testsponsor)
     });
 
     test('Edit sponsor name', async ({ page, browserName }) => {
@@ -187,13 +189,14 @@ test.describe.serial('Admin tests', () => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
         const emailsponsor = `admintestingsponsor-${browserName}@test.example`;
         const updatedEmailSponsor = `admintestedsponsro-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Login' }).click();
         await page.getByLabel('Email').fill('admin@email.com');
         await page.getByLabel('Password').pressSequentially('AdminTest');
         await page.getByRole('button', {name: 'Log in'}).click();
         let row = page.locator('table.admin-table tbody tr').filter({ hasText: updatedEmailSponsor});
-        await expect(row.locator('td strong')).toHaveText('clemson')
+        await expect(row.locator('td strong')).toHaveText(testsponsor)
         await row.getByRole('button',{name: 'Edit / Role'}).click();
         await page.locator('#edit-sponsor').selectOption('-- Unassigned --')
         await page.getByRole('button', {name: 'Save Account Changes'}).click();
@@ -283,6 +286,7 @@ test.describe.serial('Admin tests', () => {
     });
     test('Assign to sponsor', async ({ page, browserName }) => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Login' }).click();
         await page.getByLabel('Email').fill('admin@email.com');
@@ -291,12 +295,12 @@ test.describe.serial('Admin tests', () => {
         await page.getByRole('tab', {name: 'Driver & Sponsor Operations'}).click()
         let rowdriver = await page.locator('table.admin-table tbody tr').filter({ hasText: updatedEmaildriver});
         let driverID = await page.locator('#aff-driver').locator('option').filter({hasText: `JohnTest-${browserName}`}).getAttribute('value');
-        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: 'clemson', exact : true}).getAttribute('value');
+        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: testsponsor}).getAttribute('value');
         await page.locator('#aff-driver').selectOption(driverID);
         await page.locator('#aff-sponsor').selectOption(SponsorID);
         await page.locator('#aff-reason').fill('Application Approved');
         await page.getByRole('button',{name: 'Assign Driver to Sponsor'}).click();
-        await expect(rowdriver).toContainText('clemson')
+        await expect(rowdriver).toContainText(testsponsor)
     });
     test('Drop from sponsor', async ({ page, browserName }) => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
@@ -315,6 +319,7 @@ test.describe.serial('Admin tests', () => {
     });
     test('Try to Assign without selecting a sponsor', async ({ page, browserName }) => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Login' }).click();
         await page.getByLabel('Email').fill('admin@email.com');
@@ -323,13 +328,14 @@ test.describe.serial('Admin tests', () => {
         await page.getByRole('tab', {name: 'Driver & Sponsor Operations'}).click()
         let rowdriver = await page.locator('table.admin-table tbody tr').filter({ hasText: updatedEmaildriver});
         let driverID = await page.locator('#aff-driver').locator('option').filter({hasText: `JohnTest-${browserName}`}).getAttribute('value');
-        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: 'clemson', exact : true}).getAttribute('value');
+        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: testsponsor, exact : true}).getAttribute('value');
         await page.locator('#aff-driver').selectOption(driverID);
         await page.getByRole('button',{name: 'Assign Driver to Sponsor'}).click();
 
     });
     test('Try to Assign to sponsor with no reason', async ({ page, browserName }) => {
         const updatedEmaildriver = `admintesteddriver-${browserName}@test.example`;
+        const testsponsor = `testingsponsor-${browserName}`;
         await page.goto('http://localhost:5173/');
         await page.getByRole('link', { name: 'Login' }).click();
         await page.getByLabel('Email').fill('admin@email.com');
@@ -338,7 +344,7 @@ test.describe.serial('Admin tests', () => {
         await page.getByRole('tab', {name: 'Driver & Sponsor Operations'}).click()
         let rowdriver = await page.locator('table.admin-table tbody tr').filter({ hasText: updatedEmaildriver});
         let driverID = await page.locator('#aff-driver').locator('option').filter({hasText: `JohnTest-${browserName}`}).getAttribute('value');
-        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: 'clemson', exact : true}).getAttribute('value');
+        let SponsorID = await page.locator('#aff-sponsor').locator('option').filter({hasText: testsponsor}).getAttribute('value');
         await page.locator('#aff-driver').selectOption(driverID)
         await page.locator('#aff-sponsor').selectOption(SponsorID);
         await page.getByRole('button',{name: 'Assign Driver to Sponsor'}).click();

@@ -27,23 +27,46 @@ beforeEach(() => {
 
 test('creates a sponsor, company, and sponsor membership in one transaction', async () => {
   connection.query
-    .mockResolvedValueOnce([{ insertId: 12 }])
-    .mockResolvedValueOnce([{ insertId: 7 }])
-    .mockResolvedValueOnce([{}]);
+    .mockResolvedValueOnce([{ insertId: 12 }]) // INSERT Users
+    .mockResolvedValueOnce([[]])               // SELECT existing sponsor
+    .mockResolvedValueOnce([{ insertId: 7 }])  // INSERT Sponsors
+    .mockResolvedValueOnce([{}]);              // INSERT SponsorUsers
 
   const response = await request(app).post('/api/signup').send({
-    role: 'Sponsor', name: 'Alex Smith', email: 'ALEX@example.com',
-    password: 'test-password', companyName: 'North Star Transport',
+    role: 'Sponsor',
+    name: 'Alex Smith',
+    email: 'ALEX@example.com',
+    password: 'test-password',
+    companyName: 'North Star Transport',
   });
 
   expect(response.statusCode).toBe(201);
   expect(response.body.role).toBe('Sponsor');
-  expect(connection.query).toHaveBeenNthCalledWith(1, expect.stringContaining('INSERT INTO Users'),
-    ['Alex Smith', 'alex@example.com', 'hashed-password', 'Sponsor', null]);
-  expect(connection.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO Sponsors'),
-    ['North Star Transport']);
-  expect(connection.query).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO SponsorUsers'),
-    [12, 7]);
+
+  expect(connection.query).toHaveBeenNthCalledWith(
+    1,
+    expect.stringContaining('INSERT INTO Users'),
+    ['Alex Smith', 'alex@example.com', 'hashed-password', 'Sponsor', null]
+  );
+
+  expect(connection.query).toHaveBeenNthCalledWith(
+    2,
+    expect.stringContaining('SELECT sponsor_id FROM Sponsors'),
+    ['North Star Transport']
+  );
+
+  expect(connection.query).toHaveBeenNthCalledWith(
+    3,
+    expect.stringContaining('INSERT INTO Sponsors'),
+    ['North Star Transport']
+  );
+
+  expect(connection.query).toHaveBeenNthCalledWith(
+    4,
+    expect.stringContaining('INSERT INTO SponsorUsers'),
+    [12, 7]
+  );
+
   expect(connection.commit).toHaveBeenCalledTimes(1);
   expect(connection.release).toHaveBeenCalledTimes(1);
 });

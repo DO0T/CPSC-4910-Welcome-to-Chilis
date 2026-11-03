@@ -113,4 +113,6 @@ test.describe.serial('Sponsor tests', () => {
     await expect(item.getByText('59,999 pts')).toBeVisible();
     await expect(item.getByText('from $599.99')).toBeVisible();
     });
+
+    
 });
