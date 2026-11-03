@@ -405,7 +405,8 @@ app.post("/api/forgot-password", async (req, res) => {
         expiresAt: Date.now() + RESET_TOKEN_DURATION_MS,
       });
 
-      const frontendBase = process.env.FRONTEND_URL || "http://localhost:5173";
+      // Strip any trailing slash so the link never ends up with "//reset-password"
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
       const resetLink = `${frontendBase}/reset-password?token=${resetToken}`;
 
       await transporter.sendMail({
