@@ -14,6 +14,8 @@ function SponsorOrganization() {
   const [form, setForm] = useState({ companyName: '', pointValue: '' });
   const [notice, setNotice] = useState({ text: '', error: false });
   const [saving, setSaving] = useState(false);
+  const [policyDays, setPolicyDays] = useState('0');
+  const [policyNotice, setPolicyNotice] = useState('');
 
   const loadInfo = useCallback(async () => {
     const token = sessionStorage.getItem('authToken');
@@ -32,6 +34,10 @@ function SponsorOrganization() {
       }
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Unable to load your sponsor info.');
+      const policyResponse = await fetch(`${API_BASE_URL}/api/sponsor/policy`, { headers: { Authorization: `Bearer ${token}` } });
+      const policy = await policyResponse.json();
+      if (!policyResponse.ok) throw new Error(policy.message || 'Unable to load point policy.');
+      setPolicyDays(String(policy.days));
       setInfo({ data, loading: false, error: '' });
       setForm({
         companyName: data.organization.companyName,
@@ -68,6 +74,20 @@ function SponsorOrganization() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function savePolicy(event) {
+    event.preventDefault();
+    setPolicyNotice('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sponsor/policy`, {
+        method: 'PUT', headers: { Authorization: `Bearer ${sessionStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: Number(policyDays) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to save policy.');
+      setPolicyNotice(data.message);
+    } catch (error) { setPolicyNotice(error.message); }
   }
 
   if (info.loading || info.error) {
@@ -155,6 +175,21 @@ function SponsorOrganization() {
                 {saving ? 'Saving…' : 'Save sponsor info'}
               </button>
             </div>
+          </form>
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="policy-heading">
+          <header className="dashboard-card-header">
+            <h2 id="policy-heading">Points after removal</h2>
+            <p>Set the number of days future removed drivers may use their remaining points. Enter 0 to prevent use. Changes do not alter existing removal periods.</p>
+          </header>
+          <form className="sponsor-form" onSubmit={savePolicy}>
+            <div className="sponsor-form-field">
+              <label htmlFor="policy-days">Days after removal</label>
+              <input id="policy-days" type="number" min="0" max="3650" step="1" required value={policyDays} onChange={event => setPolicyDays(event.target.value)} />
+            </div>
+            <button type="submit" className="sponsor-primary-button">Save point policy</button>
+            {policyNotice && <p role="status">{policyNotice}</p>}
           </form>
         </section>
 

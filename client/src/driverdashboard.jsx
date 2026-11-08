@@ -100,6 +100,7 @@ function DriverDashboard() {
 
   const [profile, setProfile] = useState({ data: null, loading: true, error: '' });
   const [points, setPoints] = useState({ data: null, loading: true, error: '' });
+  const [formerAccess, setFormerAccess] = useState({ data: [], error: '' });
   const [activity, setActivity] = useState({ data: [], loading: true, error: '' });
   const [sponsors, setSponsors] = useState({ data: [], loading: true, error: '' });
   const [memberships, setMemberships] = useState({ data: [], loading: true, error: '' });
@@ -123,6 +124,10 @@ function DriverDashboard() {
     }
 
     const authHeaders = { Authorization: `Bearer ${token}` };
+    const formerController = new AbortController();
+    fetch(`${API_BASE_URL}/api/driver/post-removal-access`, { headers: authHeaders, signal: formerController.signal })
+      .then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.message); setFormerAccess({ data: body, error: '' }); })
+      .catch(error => { if (error.name !== 'AbortError') setFormerAccess({ data: [], error: error.message || 'Unable to load former sponsor access.' }); });
     const profileController = new AbortController();
     const pointsController = new AbortController();
     const activityController = new AbortController();
@@ -216,6 +221,7 @@ function DriverDashboard() {
     loadMemberships();
 
     return () => {
+      formerController.abort();
       profileController.abort();
       pointsController.abort();
       activityController.abort();
@@ -509,6 +515,20 @@ function DriverDashboard() {
             )}
           </header>
         </section>
+
+        {(formerAccess.error || formerAccess.data.length > 0) && (
+          <section className="dashboard-card" aria-labelledby="former-access-heading">
+            <header className="dashboard-card-header"><h2 id="former-access-heading">Points from former sponsors</h2></header>
+            {formerAccess.error && <p role="alert">{formerAccess.error}</p>}
+            <ul>{formerAccess.data.map(item => (
+              <li key={`${item.companyName}-${item.removedAt}`}>
+                {item.companyName}: {item.points.toLocaleString()} points. {item.permitted
+                  ? `Policy permits use until ${new Date(item.expiresAt).toLocaleString()}.`
+                  : 'Point use is not currently permitted.'}
+              </li>
+            ))}</ul>
+          </section>
+        )}
 
         <section className="dashboard-card" aria-labelledby="driver-applications-heading">
           <header className="dashboard-card-header">

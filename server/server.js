@@ -18,6 +18,7 @@ const { createSponsorCatalogRouter } = require('./sponsor-catalog');
 const { createAlertRouter } = require('./alerts');
 const { createDriverApplicationsRouter } = require('./driver-applications');
 const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
+const { createPostRemovalRouter } = require('./post-removal');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
 const { createPointDisputesRouter } = require('./point-disputes');
@@ -153,6 +154,9 @@ app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
 app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
+app.use('/api/sponsor/policy', requireLogin);
+app.use('/api/driver/post-removal-access', requireLogin);
+app.use('/api', createPostRemovalRouter(pool));
 app.use('/api/sponsor', requireLogin, createSponsorUsersRouter(pool, createAuditLog));
 
 function isValidPictureUrl(value) {
@@ -1435,6 +1439,28 @@ app.post(
         previousCompany = sponsorOrg.company_name;
       }
 
+      if (!previousSponsorId || !(await driverBelongsToSponsor(connection, driverId, previousSponsorId))) {
+        await connection.rollback();
+        return res.status(404).json({ message: "Driver does not belong to that sponsor" });
+      }
+      const [policyRows] = await connection.query(
+        "SELECT post_removal_days FROM Sponsors WHERE sponsor_id = ? FOR UPDATE", [previousSponsorId]
+      );
+      const accessDays = Number(policyRows[0].post_removal_days);
+      await connection.query(
+        `INSERT INTO DriverPostRemovalAccess (driver_id, sponsor_id, removed_at, expires_at)
+         VALUES (?, ?, NOW(), IF(? > 0, DATE_ADD(NOW(), INTERVAL ? DAY), NULL))
+         ON DUPLICATE KEY UPDATE removed_at = VALUES(removed_at), expires_at = VALUES(expires_at)`,
+        [driverId, previousSponsorId, accessDays, accessDays]
+      );
+      const accessMessage = accessDays
+        ? `Your affiliation with ${previousCompany} ended. Its policy permits point use for ${accessDays} days after removal.`
+        : `Your affiliation with ${previousCompany} ended. Its policy does not permit point use after removal.`;
+      await connection.query(
+        "INSERT INTO UserAlerts (user_id, alert_type, message) VALUES (?, 'points', ?)",
+        [driverId, accessMessage]
+      );
+
       // Remove the membership too, otherwise the driver can switch right back to this sponsor
       await connection.query(
         "DELETE FROM DriverSponsorships WHERE driver_id = ? AND sponsor_id = ?;",
@@ -1464,7 +1490,7 @@ app.post(
           from: '"Good Driver Incentive Program" <alerts@gooddriverprogram.com>',
           to: driver.email,
           subject: "Important Account Alert: Sponsor Affiliation Ended",
-          text: `Hello ${driver.name},\n\nYou have been dropped from ${previousCompany}.\nReason: ${reason}\n\nNote: This is a mandatory system alert and cannot be disabled.`,
+          text: `Hello ${driver.name},\n\nYou have been dropped from ${previousCompany}.\nReason: ${reason}\n\n${accessMessage}\n\nNote: This is a mandatory system alert and cannot be disabled.`,
         });
       } catch (emailErr) {
         console.warn(
