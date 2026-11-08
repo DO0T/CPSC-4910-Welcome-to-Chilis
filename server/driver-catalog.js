@@ -40,6 +40,7 @@ function createDriverCatalogRouter(pool) {
       return res.json({
         sponsorId: driver.sponsor_id,
         companyName: driver.company_name,
+        pointValue: driver.point_value == null ? null : Number(driver.point_value),
         items: items.map((item) => {
           const effectivePrice = item.price_override == null ? item.ebay_price : item.price_override;
           return {

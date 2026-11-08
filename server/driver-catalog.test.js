@@ -28,6 +28,7 @@ test('loads only approved, available items from the active sponsor and calculate
   expect(response.body).toEqual({
     sponsorId: 7,
     companyName: 'Acme',
+    pointValue: 0.25,
     items: [
       { id: 3, title: 'Reward A', imageUrl: 'https://example.com/a.jpg', itemUrl: 'https://example.com/item', mediaRating: 'PG', pointCost: 41 },
       { id: 4, title: 'Reward B', imageUrl: '', itemUrl: '', mediaRating: null, pointCost: 20 },
@@ -45,6 +46,7 @@ test('shows an empty catalog without contacting eBay', async () => {
   const response = await request(app).get('/api/driver/catalog');
   expect(response.statusCode).toBe(200);
   expect(response.body.items).toEqual([]);
+  expect(response.body.pointValue).toBe(0.25);
   expect(pool.query).toHaveBeenCalledTimes(2);
 });
 

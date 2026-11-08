@@ -82,6 +82,13 @@ function DriverCatalog() {
           <header className="dashboard-card-header">
             <h2 id="driver-catalog-heading">Available rewards</h2>
             <p className="dashboard-section-description">Items selected by your current sponsor.</p>
+            {catalog && (
+              <p className="dashboard-section-description">
+                {Number.isFinite(catalog.pointValue) && catalog.pointValue > 0
+                  ? `Points conversion: 1 point = $${catalog.pointValue.toFixed(2)} USD.`
+                  : 'Points conversion rate unavailable.'}
+              </p>
+            )}
           </header>
           {loading ? (
             <p className="dashboard-message" role="status">Loading rewards…</p>
