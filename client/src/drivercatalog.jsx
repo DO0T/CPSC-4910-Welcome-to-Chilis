@@ -168,9 +168,11 @@ function DriverCatalog() {
                     <p>Available from {catalog.companyName}</p>
                     {item.mediaRating && <p>Media rating: {item.mediaRating}</p>}
                     {listingUrl(item.itemUrl) && <a href={listingUrl(item.itemUrl)} target="_blank" rel="noopener noreferrer">View original listing</a>}
-                    <div><button className="driver-catalog-purchase" type="button" disabled={item.pointCost == null || catalog.balance < item.pointCost} onClick={() => openCheckout(item)}>
+                  </div>
+                  <div className="driver-catalog-actions">
+                    <button className="driver-catalog-purchase" type="button" disabled={item.pointCost == null || catalog.balance < item.pointCost} onClick={() => openCheckout(item)} aria-label={`Buy ${item.title} with points`}>
                       Buy with points
-                    </button></div>
+                    </button>
                     {item.pointCost != null && catalog.balance < item.pointCost && <p>Not enough points with this sponsor.</p>}
                   </div>
                 </li>
