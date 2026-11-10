@@ -34,6 +34,9 @@
 }
 
 .driver-catalog-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   border-top: 1px solid #e8efec;
 }
 
@@ -42,7 +45,7 @@
   grid-template-columns: 112px minmax(0, 1fr);
   align-items: center;
   gap: 22px;
-  padding: 22px clamp(18px, 3vw, 32px);
+  padding: 20px 12px 20px clamp(18px, 3vw, 32px);
   width: 100%;
   border: 0;
   background: transparent;
@@ -52,12 +55,12 @@
 
 .driver-catalog-item-button:hover { background: #f5faf7; }
 .driver-catalog-details-label { display: block; margin-top: 8px; color: #55768d; font-size: 14px; }
-.driver-catalog-details { padding: 0 clamp(18px, 3vw, 32px) 22px; color: #29485f; }
+.driver-catalog-details { grid-column: 1 / -1; grid-row: 2; padding: 0 clamp(18px, 3vw, 32px) 20px; color: #29485f; }
 .driver-catalog-details p { margin: 0 0 8px; }
 .driver-catalog-details a { color: #245c48; }
-.driver-catalog-actions { padding: 0 clamp(18px, 3vw, 32px) 22px; }
+.driver-catalog-actions { grid-column: 2; grid-row: 1; padding: 20px clamp(18px, 3vw, 32px) 20px 0; text-align: right; }
 .driver-catalog-actions p { margin: 8px 0 0; color: #55768d; font-size: 14px; }
-.driver-catalog-purchase { padding: 10px 18px; border: 0; border-radius: 999px; background: #245c48; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.driver-catalog-purchase { min-height: 38px; padding: 8px 14px; border: 0; border-radius: 999px; background: #245c48; color: white; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .driver-catalog-purchase:disabled { opacity: .5; cursor: not-allowed; }
 
 .catalog-balance { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding: 16px 20px; border: 1px solid #c9dcd5; border-radius: 12px; background: #fff; color: #55768d; }
@@ -130,7 +133,12 @@
   .driver-catalog-item-button {
     grid-template-columns: 88px minmax(0, 1fr);
     gap: 14px;
+    padding-bottom: 8px;
   }
+
+  .driver-catalog-item { grid-template-columns: minmax(0, 1fr); }
+  .driver-catalog-actions { grid-column: 1; grid-row: 2; padding: 0 18px 18px 120px; text-align: left; }
+  .driver-catalog-details { grid-row: 3; }
 
   .driver-catalog-image {
     width: 88px;
