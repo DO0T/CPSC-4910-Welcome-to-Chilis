@@ -6,18 +6,19 @@ if (process.platform === 'win32' &&
   test.use({ channel: 'chrome' });
 }
 
-test('shows saved rewards from the active sponsor without purchasing controls', async ({ page }) => {
+test('shows saved rewards and completes a simulated points purchase', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     const data = {
       '/api/session': { role: 'Driver', impersonating: null },
       '/api/driver/catalog': {
-        sponsorId: 7, companyName: 'Acme', items: [
+        sponsorId: 7, companyName: 'Acme', balance: 100, items: [
           { id: 3, title: 'Phone stand', imageUrl: '', pointCost: 41, mediaRating: 'PG', itemUrl: 'https://example.com/item' },
           { id: 4, title: 'Travel mug', imageUrl: '', pointCost: 20 },
         ],
       },
+      '/api/driver/catalog/purchase': { balance: 59, message: 'Simulated purchase complete.' },
     }[path];
     return route.fulfill({ status: data === undefined ? 404 : 200, json: data ?? {} });
   });
@@ -33,9 +34,18 @@ test('shows saved rewards from the active sponsor without purchasing controls', 
   await expect(item).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByText('Media rating: PG')).toBeVisible();
   await expect(page.getByRole('link', { name: 'View original listing' })).toHaveAttribute('href', 'https://example.com/item');
-  await item.click();
-  await expect(page.getByText('Media rating: PG')).toBeHidden();
-  await expect(page.getByRole('button', { name: /buy|purchase|checkout/i })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Buy with points' }).first().click();
+  const checkout = page.getByRole('dialog');
+  await expect(checkout.getByText('Balance after purchase')).toBeVisible();
+  await expect(checkout).toContainText('59 pts');
+  await expect(checkout).toContainText('no real order is placed or shipped');
+  const purchaseRequest = page.waitForRequest((req) => req.url().endsWith('/api/driver/catalog/purchase') && req.method() === 'POST');
+  await checkout.getByRole('button', { name: 'Complete purchase' }).click();
+  expect((await purchaseRequest).postDataJSON()).toEqual({ itemId: 3, sponsorId: 7, pointCost: 41 });
+  await expect(checkout.getByText('Purchase complete')).toBeVisible();
+  await expect(checkout).toContainText('59 pts');
+  await checkout.getByRole('button', { name: 'Continue shopping' }).click();
+  await expect(page.locator('.catalog-balance')).toContainText('59');
   await page.setViewportSize({ width: 360, height: 780 });
   await expect(page.locator('.driver-catalog-item').first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);

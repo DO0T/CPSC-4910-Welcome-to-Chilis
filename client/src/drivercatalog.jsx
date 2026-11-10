@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
 import './driverdashboard.css';
@@ -23,12 +23,34 @@ function DriverCatalog() {
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [purchaseMessage, setPurchaseMessage] = useState('');
+  const [checkoutItem, setCheckoutItem] = useState(null);
+  const [purchaseError, setPurchaseError] = useState('');
+  const [receipt, setReceipt] = useState(null);
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (checkoutItem && dialog && !dialog.open) dialog.showModal();
+  }, [checkoutItem]);
+
+  function closeCheckout() {
+    if (purchasing) return;
+    dialogRef.current?.close();
+    setCheckoutItem(null);
+    setPurchaseError('');
+    setReceipt(null);
+  }
+
+  function openCheckout(item) {
+    setPurchaseError('');
+    setReceipt(null);
+    setCheckoutItem(item);
+  }
 
   async function purchase(item) {
-    if (purchasing || !window.confirm(`Simulate buying ${item.title} for ${item.pointCost} points? No real order will be placed.`)) return;
+    if (purchasing) return;
     setPurchasing(true);
-    setPurchaseMessage('');
+    setPurchaseError('');
     try {
       const response = await fetch(`${API_BASE_URL}/api/driver/catalog/purchase`, {
         method: 'POST',
@@ -43,9 +65,9 @@ function DriverCatalog() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to complete the simulated purchase.');
       setCatalog((current) => ({ ...current, balance: body.balance }));
-      setPurchaseMessage(body.message);
+      setReceipt({ balance: body.balance, cost: item.pointCost });
     } catch (caught) {
-      setPurchaseMessage(caught.message || 'Unable to complete the simulated purchase.');
+      setPurchaseError(caught.message || 'Unable to complete the purchase.');
     } finally {
       setPurchasing(false);
     }
@@ -117,9 +139,7 @@ function DriverCatalog() {
                   : 'Points conversion rate unavailable.'}
               </p>
             )}
-            {catalog && <p className="dashboard-section-description">Your {catalog.companyName} balance: <strong>{catalog.balance.toLocaleString()} points</strong></p>}
-            <p className="dashboard-section-description">Purchases are simulated and no real order will be placed.</p>
-            {purchaseMessage && <p className="dashboard-section-description" role="status">{purchaseMessage}</p>}
+            {catalog && <div className="catalog-balance"><span>Your {catalog.companyName} balance</span><strong>{catalog.balance.toLocaleString()} <small>points</small></strong></div>}
           </header>
           {loading ? (
             <p className="dashboard-message" role="status">Loading rewards…</p>
@@ -148,8 +168,8 @@ function DriverCatalog() {
                     <p>Available from {catalog.companyName}</p>
                     {item.mediaRating && <p>Media rating: {item.mediaRating}</p>}
                     {listingUrl(item.itemUrl) && <a href={listingUrl(item.itemUrl)} target="_blank" rel="noopener noreferrer">View original listing</a>}
-                    <div><button className="driver-catalog-purchase" type="button" disabled={purchasing || item.pointCost == null || catalog.balance < item.pointCost} onClick={() => purchase(item)}>
-                      {purchasing ? 'Processing…' : 'Simulate purchase'}
+                    <div><button className="driver-catalog-purchase" type="button" disabled={item.pointCost == null || catalog.balance < item.pointCost} onClick={() => openCheckout(item)}>
+                      Buy with points
                     </button></div>
                     {item.pointCost != null && catalog.balance < item.pointCost && <p>Not enough points with this sponsor.</p>}
                   </div>
@@ -161,6 +181,28 @@ function DriverCatalog() {
         {!loading && !error && catalog?.items.length > 0 && (
           <p className="driver-catalog-note">Listings come from your sponsor’s saved catalog. Availability may change.</p>
         )}
+        <dialog className="catalog-checkout" ref={dialogRef} aria-labelledby="checkout-title" onCancel={(event) => { event.preventDefault(); closeCheckout(); }} onClose={() => { if (!purchasing) { setCheckoutItem(null); setPurchaseError(''); setReceipt(null); } }}>
+          {checkoutItem && catalog && (
+            <div className="checkout-content">
+              <div className="checkout-heading">
+                <div><p className="checkout-eyebrow">{receipt ? 'Purchase complete' : 'Rewards checkout'}</p><h2 id="checkout-title">{receipt ? 'Enjoy your reward' : 'Review your reward'}</h2></div>
+                <button className="checkout-close" type="button" onClick={closeCheckout} disabled={purchasing} aria-label="Close checkout">×</button>
+              </div>
+              <div className="checkout-item">
+                <CatalogImage item={checkoutItem} />
+                <div><p className="checkout-sponsor">{catalog.companyName}</p><h3>{checkoutItem.title}</h3><p>Quantity: 1</p></div>
+              </div>
+              <div className="checkout-summary">
+                {!receipt && <div><span>Available points</span><strong>{catalog.balance.toLocaleString()}</strong></div>}
+                <div><span>{receipt ? 'Points spent' : 'Reward cost'}</span><strong>−{checkoutItem.pointCost.toLocaleString()} pts</strong></div>
+                <div className="checkout-total"><span>{receipt ? 'Remaining balance' : 'Balance after purchase'}</span><strong>{(receipt ? receipt.balance : catalog.balance - checkoutItem.pointCost).toLocaleString()} pts</strong></div>
+              </div>
+              <p className="checkout-disclosure">This is a simulated purchase. Points are deducted, but no real order is placed or shipped.</p>
+              {purchaseError && <p className="checkout-error" role="alert">{purchaseError}</p>}
+              {receipt ? <button className="checkout-primary" type="button" onClick={closeCheckout}>Continue shopping</button> : <div className="checkout-actions"><button className="checkout-secondary" type="button" onClick={closeCheckout} disabled={purchasing}>Keep shopping</button><button className="checkout-primary" type="button" onClick={() => purchase(checkoutItem)} disabled={purchasing}>{purchasing ? 'Completing purchase…' : 'Complete purchase'}</button></div>}
+            </div>
+          )}
+        </dialog>
       </div>
     </main>
   );
