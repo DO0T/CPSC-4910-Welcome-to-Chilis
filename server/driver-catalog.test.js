@@ -29,6 +29,7 @@ test('loads only approved, available items from the active sponsor and calculate
     sponsorId: 7,
     companyName: 'Acme',
     pointValue: 0.25,
+    balance: 0,
     items: [
       { id: 3, title: 'Reward A', imageUrl: 'https://example.com/a.jpg', itemUrl: 'https://example.com/item', mediaRating: 'PG', pointCost: 41 },
       { id: 4, title: 'Reward B', imageUrl: '', itemUrl: '', mediaRating: null, pointCost: 20 },

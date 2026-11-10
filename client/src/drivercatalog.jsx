@@ -22,6 +22,34 @@ function DriverCatalog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseMessage, setPurchaseMessage] = useState('');
+
+  async function purchase(item) {
+    if (purchasing || !window.confirm(`Simulate buying ${item.title} for ${item.pointCost} points? No real order will be placed.`)) return;
+    setPurchasing(true);
+    setPurchaseMessage('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/catalog/purchase`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: item.id, sponsorId: catalog.sponsorId, pointCost: item.pointCost }),
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to complete the simulated purchase.');
+      setCatalog((current) => ({ ...current, balance: body.balance }));
+      setPurchaseMessage(body.message);
+    } catch (caught) {
+      setPurchaseMessage(caught.message || 'Unable to complete the simulated purchase.');
+    } finally {
+      setPurchasing(false);
+    }
+  }
 
   function listingUrl(value) {
     try {
@@ -89,6 +117,9 @@ function DriverCatalog() {
                   : 'Points conversion rate unavailable.'}
               </p>
             )}
+            {catalog && <p className="dashboard-section-description">Your {catalog.companyName} balance: <strong>{catalog.balance.toLocaleString()} points</strong></p>}
+            <p className="dashboard-section-description">Purchases are simulated and no real order will be placed.</p>
+            {purchaseMessage && <p className="dashboard-section-description" role="status">{purchaseMessage}</p>}
           </header>
           {loading ? (
             <p className="dashboard-message" role="status">Loading rewards…</p>
@@ -117,6 +148,10 @@ function DriverCatalog() {
                     <p>Available from {catalog.companyName}</p>
                     {item.mediaRating && <p>Media rating: {item.mediaRating}</p>}
                     {listingUrl(item.itemUrl) && <a href={listingUrl(item.itemUrl)} target="_blank" rel="noopener noreferrer">View original listing</a>}
+                    <div><button className="driver-catalog-purchase" type="button" disabled={purchasing || item.pointCost == null || catalog.balance < item.pointCost} onClick={() => purchase(item)}>
+                      {purchasing ? 'Processing…' : 'Simulate purchase'}
+                    </button></div>
+                    {item.pointCost != null && catalog.balance < item.pointCost && <p>Not enough points with this sponsor.</p>}
                   </div>
                 </li>
               ))}
