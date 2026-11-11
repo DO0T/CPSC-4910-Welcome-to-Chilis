@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
@@ -318,6 +319,7 @@ function SponsorDashboard() {
           <div>
             <p className="dashboard-eyebrow">Sponsor dashboard</p>
             <h1 className="dashboard-greeting">{sponsor.companyName}</h1>
+            <p className="dashboard-section-description">Manage your drivers, applications, and rewards.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
             <Link className="sponsor-dashboard-link" to="/point-disputes">Point disputes</Link>
@@ -350,6 +352,159 @@ function SponsorDashboard() {
           </dl>
         </section>
 
+        <section className="dashboard-card" aria-labelledby="sponsor-applications-heading">
+          <header className="dashboard-card-header">
+            <p className="dashboard-eyebrow">Driver applications</p>
+            <h2 id="sponsor-applications-heading" className="sponsor-section-title">Pending applications</h2>
+          </header>
+          {applicationNotice.text && (
+            <p className={`dashboard-application-notice ${applicationNotice.error ? 'dashboard-application-error' : ''}`}
+              role={applicationNotice.error ? 'alert' : 'status'}>
+              {applicationNotice.text}
+            </p>
+          )}
+          {applications.loading ? (
+            <p className="dashboard-message" role="status">Loading applications…</p>
+          ) : applications.error ? (
+            <p className="dashboard-message" role="alert">{applications.error} Try refreshing the page.</p>
+          ) : applications.data.length === 0 ? (
+            <p className="dashboard-message">No pending applications right now.</p>
+          ) : (
+            <>
+              <div className="sponsor-bulk-toolbar">
+                <label className="sponsor-select-all">
+                  <input type="checkbox" checked={allApplicationsSelected} disabled={savingApplicationId !== null}
+                    onChange={(event) => {
+                      setBulkConfirmation(null);
+                      setSelectedApplicationIds(event.target.checked
+                        ? applications.data.map((application) => application.applicationId) : []);
+                    }} />
+                  Select all
+                </label>
+                <span>{selectedApplicationIds.length} selected</span>
+                <div className="sponsor-application-actions">
+                  <button type="button" className="sponsor-approve-button"
+                    disabled={selectedApplicationIds.length === 0 || savingApplicationId !== null}
+                    onClick={() => { setConfirmation(null); setBulkConfirmation({ applicationIds: [...selectedApplicationIds], decision: 'APPROVED' }); }}>
+                    Approve selected
+                  </button>
+                  <button type="button" className="sponsor-deny-button"
+                    disabled={selectedApplicationIds.length === 0 || savingApplicationId !== null}
+                    onClick={() => { setConfirmation(null); setBulkConfirmation({ applicationIds: [...selectedApplicationIds], decision: 'DENIED' }); }}>
+                    Deny selected
+                  </button>
+                </div>
+              </div>
+              {bulkConfirmation && (
+                <div className="sponsor-bulk-confirmation" role="group" aria-label="Confirm bulk decision">
+                  <p>{bulkConfirmation.decision === 'APPROVED' ? 'Approve' : 'Deny'} {bulkConfirmation.applicationIds.length} selected application{bulkConfirmation.applicationIds.length === 1 ? '' : 's'}?
+                    {bulkConfirmation.decision === 'DENIED' && ' Drivers can reapply in 30 days.'}</p>
+                  <div className="sponsor-application-actions">
+                    <button type="button" className={bulkConfirmation.decision === 'APPROVED' ? 'sponsor-approve-button' : 'sponsor-deny-button'}
+                      disabled={savingApplicationId !== null} onClick={decideSelectedApplications}>
+                      {savingApplicationId === 'bulk' ? 'Saving…' : bulkConfirmation.decision === 'APPROVED' ? 'Confirm bulk approval' : 'Confirm bulk denial'}
+                    </button>
+                    <button type="button" className="sponsor-cancel-button" disabled={savingApplicationId !== null}
+                      onClick={() => setBulkConfirmation(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              <SmartList items={applications.data} label="applications" options={[{key:'name',label:'Driver',value:x=>x.driverName},{key:'date',label:'Date applied',type:'date',value:x=>x.appliedAt}]}>{visibleItems => (<ul className="sponsor-list">
+                {visibleItems.map((application) => (
+                  <li className="sponsor-list-item sponsor-application-item" key={application.applicationId}>
+                    <div className="sponsor-application-main">
+                      <input type="checkbox" aria-label={`Select ${application.driverName}`}
+                        checked={selectedApplicationIds.includes(application.applicationId)}
+                        disabled={savingApplicationId !== null}
+                        onChange={() => toggleApplicationSelection(application.applicationId)} />
+                      <div>
+                        <button type="button" className="sponsor-driver-name"
+                          aria-expanded={driverDetails?.applicationId === application.applicationId}
+                          aria-controls={driverDetails?.applicationId === application.applicationId
+                            ? `sponsor-driver-details-${application.applicationId}` : undefined}
+                          onClick={() => toggleDriverDetails(application.applicationId)}>{application.driverName}</button>
+                        <span className="sponsor-list-detail">Applied {formatDate(application.appliedAt)}</span>
+                      </div>
+                    </div>
+                    {confirmation?.applicationId === application.applicationId ? (
+                      <div className="sponsor-application-confirmation">
+                        <span>{confirmation.decision === 'APPROVED'
+                          ? `Approve ${application.driverName}'s application?`
+                          : `Deny ${application.driverName}'s application? They can reapply in 30 days.`}</span>
+                        <div className="sponsor-application-actions">
+                          <button type="button" className={confirmation.decision === 'APPROVED' ? 'sponsor-approve-button' : 'sponsor-deny-button'}
+                            disabled={savingApplicationId !== null}
+                            onClick={() => decideApplication(application, confirmation.decision)}>
+                            {savingApplicationId === application.applicationId ? 'Saving…'
+                              : confirmation.decision === 'APPROVED' ? 'Approve driver' : 'Deny application'}
+                          </button>
+                          <button type="button" className="sponsor-cancel-button"
+                            disabled={savingApplicationId !== null} onClick={() => setConfirmation(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="sponsor-application-actions">
+                        <button type="button" className="sponsor-approve-button" disabled={savingApplicationId !== null}
+                          onClick={() => { setBulkConfirmation(null); setConfirmation({ applicationId: application.applicationId, decision: 'APPROVED' }); }}
+                          aria-label={`Approve ${application.driverName}`}>Approve</button>
+                        <button type="button" className="sponsor-deny-button" disabled={savingApplicationId !== null}
+                          onClick={() => { setBulkConfirmation(null); setConfirmation({ applicationId: application.applicationId, decision: 'DENIED' }); }}
+                          aria-label={`Deny ${application.driverName}`}>Deny</button>
+                      </div>
+                    )}
+                    {driverDetails?.applicationId === application.applicationId && (
+                      <div className="sponsor-driver-details" id={`sponsor-driver-details-${application.applicationId}`}>
+                        {driverDetails.loading ? (
+                          <p role="status">Loading driver information…</p>
+                        ) : driverDetails.error ? (
+                          <p role="alert">{driverDetails.error}</p>
+                        ) : (
+                          <div className="sponsor-driver-details-content">
+                            {driverDetails.data.profilePictureUrl && (
+                              <img src={driverDetails.data.profilePictureUrl} alt="" className="sponsor-driver-photo"
+                                onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                            )}
+                            <dl>
+                              <div><dt>Name</dt><dd>{driverDetails.data.driverName}</dd></div>
+                              <div><dt>Email</dt><dd>{driverDetails.data.email}</dd></div>
+                              <div><dt>Applied</dt><dd>{formatDate(driverDetails.data.appliedAt)}</dd></div>
+                            </dl>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>)}</SmartList>
+            </>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="sponsor-activity-heading">
+          <header className="dashboard-card-header">
+            <p className="dashboard-eyebrow">Point changes</p>
+            <h2 id="sponsor-activity-heading" className="sponsor-section-title">Recent activity</h2>
+          </header>
+          {sponsor.recentActivity == null ? (
+            <p className="dashboard-message">Point activity is unavailable. Check the server logs for the failed query.</p>
+          ) : sponsor.recentActivity.length === 0 ? (
+            <p className="dashboard-message">No point activity for this sponsor yet.</p>
+          ) : (
+            <SmartList items={sponsor.recentActivity} label="point activity" options={[{key:'date',label:'Date',type:'date',value:x=>x.date},{key:'driver',label:'Driver',value:x=>x.driver},{key:'points',label:'Points',type:'number',value:x=>x.points},{key:'reason',label:'Reason',value:x=>x.reason}]}>{visibleItems => (<ul className="sponsor-list">
+              {visibleItems.map((item) => (
+                <li className="sponsor-list-item" key={item.id}>
+                  <div>
+                    <span className="sponsor-list-title">{item.driver}</span>
+                    <span className="sponsor-list-detail">{formatDate(item.date)} · {item.reason}</span>
+                  </div>
+                  <span className={`sponsor-points ${item.points < 0 ? 'sponsor-points-negative' : ''}`}>
+                    {item.points > 0 ? '+' : ''}{item.points} pts
+                  </span>
+                </li>
+              ))}
+            </ul>)}</SmartList>
+          )}
+        </section>
         {/* Bulk Loading Section for Sponsors */}
         <section className="dashboard-card" aria-labelledby="sponsor-bulk-heading">
           <header className="dashboard-card-header">
@@ -364,19 +519,19 @@ function SponsorDashboard() {
               style={{
                 marginBottom: '16px',
                 fontSize: '14px',
-                color: '#55768d',
-                background: '#f8faf9',
+                color: '#706459',
+                background: '#f8f7f3',
                 padding: '14px 16px',
                 borderRadius: '10px',
                 border: '1px solid #e8efec',
               }}
             >
-              Upload a pipe-delimited text file to add Drivers (<span style={{ fontFamily: 'monospace', background: '#e8f1ed', padding: '1px 5px', borderRadius: '4px' }}>D</span>),
-              Sponsor users (<span style={{ fontFamily: 'monospace', background: '#e8f1ed', padding: '1px 5px', borderRadius: '4px' }}>S</span>), or update Driver points for <strong>{sponsor.companyName}</strong>.
+              Upload a pipe-delimited text file to add Drivers (<span style={{ fontFamily: 'monospace', background: '#f4ede5', padding: '1px 5px', borderRadius: '4px' }}>D</span>),
+              Sponsor users (<span style={{ fontFamily: 'monospace', background: '#f4ede5', padding: '1px 5px', borderRadius: '4px' }}>S</span>), or update Driver points for <strong>{sponsor.companyName}</strong>.
               <br />
               <span style={{ marginTop: '6px', display: 'block' }}>
                 Omit the organization name column:{' '}
-                <span style={{ fontFamily: 'monospace', color: '#1f394c' }}>
+                <span style={{ fontFamily: 'monospace', color: '#302b26' }}>
                   D||FirstName|LastName|email@example.com|100|Reason
                 </span>
               </span>
@@ -454,7 +609,7 @@ function SponsorDashboard() {
             )}
 
             {bulkResult && (
-              <div style={{ marginTop: '16px', padding: '14px', background: '#e8f1ed', borderRadius: '12px' }}>
+              <div style={{ marginTop: '16px', padding: '14px', background: '#f4ede5', borderRadius: '12px' }}>
                 <strong>{bulkResult.message}</strong>
                 <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '14px' }}>
                   <li>Total Lines Processed: {bulkResult.summary.totalLinesProcessed}</li>
@@ -507,159 +662,6 @@ function SponsorDashboard() {
           </div>
         </section>
 
-        <section className="dashboard-card" aria-labelledby="sponsor-applications-heading">
-          <header className="dashboard-card-header">
-            <p className="dashboard-eyebrow">Driver applications</p>
-            <h2 id="sponsor-applications-heading" className="sponsor-section-title">Pending applications</h2>
-          </header>
-          {applicationNotice.text && (
-            <p className={`dashboard-application-notice ${applicationNotice.error ? 'dashboard-application-error' : ''}`}
-              role={applicationNotice.error ? 'alert' : 'status'}>
-              {applicationNotice.text}
-            </p>
-          )}
-          {applications.loading ? (
-            <p className="dashboard-message" role="status">Loading applications…</p>
-          ) : applications.error ? (
-            <p className="dashboard-message" role="alert">{applications.error} Try refreshing the page.</p>
-          ) : applications.data.length === 0 ? (
-            <p className="dashboard-message">No pending applications right now.</p>
-          ) : (
-            <>
-              <div className="sponsor-bulk-toolbar">
-                <label className="sponsor-select-all">
-                  <input type="checkbox" checked={allApplicationsSelected} disabled={savingApplicationId !== null}
-                    onChange={(event) => {
-                      setBulkConfirmation(null);
-                      setSelectedApplicationIds(event.target.checked
-                        ? applications.data.map((application) => application.applicationId) : []);
-                    }} />
-                  Select all
-                </label>
-                <span>{selectedApplicationIds.length} selected</span>
-                <div className="sponsor-application-actions">
-                  <button type="button" className="sponsor-approve-button"
-                    disabled={selectedApplicationIds.length === 0 || savingApplicationId !== null}
-                    onClick={() => { setConfirmation(null); setBulkConfirmation({ applicationIds: [...selectedApplicationIds], decision: 'APPROVED' }); }}>
-                    Approve selected
-                  </button>
-                  <button type="button" className="sponsor-deny-button"
-                    disabled={selectedApplicationIds.length === 0 || savingApplicationId !== null}
-                    onClick={() => { setConfirmation(null); setBulkConfirmation({ applicationIds: [...selectedApplicationIds], decision: 'DENIED' }); }}>
-                    Deny selected
-                  </button>
-                </div>
-              </div>
-              {bulkConfirmation && (
-                <div className="sponsor-bulk-confirmation" role="group" aria-label="Confirm bulk decision">
-                  <p>{bulkConfirmation.decision === 'APPROVED' ? 'Approve' : 'Deny'} {bulkConfirmation.applicationIds.length} selected application{bulkConfirmation.applicationIds.length === 1 ? '' : 's'}?
-                    {bulkConfirmation.decision === 'DENIED' && ' Drivers can reapply in 30 days.'}</p>
-                  <div className="sponsor-application-actions">
-                    <button type="button" className={bulkConfirmation.decision === 'APPROVED' ? 'sponsor-approve-button' : 'sponsor-deny-button'}
-                      disabled={savingApplicationId !== null} onClick={decideSelectedApplications}>
-                      {savingApplicationId === 'bulk' ? 'Saving…' : bulkConfirmation.decision === 'APPROVED' ? 'Confirm bulk approval' : 'Confirm bulk denial'}
-                    </button>
-                    <button type="button" className="sponsor-cancel-button" disabled={savingApplicationId !== null}
-                      onClick={() => setBulkConfirmation(null)}>Cancel</button>
-                  </div>
-                </div>
-              )}
-              <ul className="sponsor-list">
-                {applications.data.map((application) => (
-                  <li className="sponsor-list-item sponsor-application-item" key={application.applicationId}>
-                    <div className="sponsor-application-main">
-                      <input type="checkbox" aria-label={`Select ${application.driverName}`}
-                        checked={selectedApplicationIds.includes(application.applicationId)}
-                        disabled={savingApplicationId !== null}
-                        onChange={() => toggleApplicationSelection(application.applicationId)} />
-                      <div>
-                        <button type="button" className="sponsor-driver-name"
-                          aria-expanded={driverDetails?.applicationId === application.applicationId}
-                          aria-controls={driverDetails?.applicationId === application.applicationId
-                            ? `sponsor-driver-details-${application.applicationId}` : undefined}
-                          onClick={() => toggleDriverDetails(application.applicationId)}>{application.driverName}</button>
-                        <span className="sponsor-list-detail">Applied {formatDate(application.appliedAt)}</span>
-                      </div>
-                    </div>
-                    {confirmation?.applicationId === application.applicationId ? (
-                      <div className="sponsor-application-confirmation">
-                        <span>{confirmation.decision === 'APPROVED'
-                          ? `Approve ${application.driverName}'s application?`
-                          : `Deny ${application.driverName}'s application? They can reapply in 30 days.`}</span>
-                        <div className="sponsor-application-actions">
-                          <button type="button" className={confirmation.decision === 'APPROVED' ? 'sponsor-approve-button' : 'sponsor-deny-button'}
-                            disabled={savingApplicationId !== null}
-                            onClick={() => decideApplication(application, confirmation.decision)}>
-                            {savingApplicationId === application.applicationId ? 'Saving…'
-                              : confirmation.decision === 'APPROVED' ? 'Approve driver' : 'Deny application'}
-                          </button>
-                          <button type="button" className="sponsor-cancel-button"
-                            disabled={savingApplicationId !== null} onClick={() => setConfirmation(null)}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="sponsor-application-actions">
-                        <button type="button" className="sponsor-approve-button" disabled={savingApplicationId !== null}
-                          onClick={() => { setBulkConfirmation(null); setConfirmation({ applicationId: application.applicationId, decision: 'APPROVED' }); }}
-                          aria-label={`Approve ${application.driverName}`}>Approve</button>
-                        <button type="button" className="sponsor-deny-button" disabled={savingApplicationId !== null}
-                          onClick={() => { setBulkConfirmation(null); setConfirmation({ applicationId: application.applicationId, decision: 'DENIED' }); }}
-                          aria-label={`Deny ${application.driverName}`}>Deny</button>
-                      </div>
-                    )}
-                    {driverDetails?.applicationId === application.applicationId && (
-                      <div className="sponsor-driver-details" id={`sponsor-driver-details-${application.applicationId}`}>
-                        {driverDetails.loading ? (
-                          <p role="status">Loading driver information…</p>
-                        ) : driverDetails.error ? (
-                          <p role="alert">{driverDetails.error}</p>
-                        ) : (
-                          <div className="sponsor-driver-details-content">
-                            {driverDetails.data.profilePictureUrl && (
-                              <img src={driverDetails.data.profilePictureUrl} alt="" className="sponsor-driver-photo"
-                                onError={(event) => { event.currentTarget.style.display = 'none'; }} />
-                            )}
-                            <dl>
-                              <div><dt>Name</dt><dd>{driverDetails.data.driverName}</dd></div>
-                              <div><dt>Email</dt><dd>{driverDetails.data.email}</dd></div>
-                              <div><dt>Applied</dt><dd>{formatDate(driverDetails.data.appliedAt)}</dd></div>
-                            </dl>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </section>
-
-        <section className="dashboard-card" aria-labelledby="sponsor-activity-heading">
-          <header className="dashboard-card-header">
-            <p className="dashboard-eyebrow">Point changes</p>
-            <h2 id="sponsor-activity-heading" className="sponsor-section-title">Recent activity</h2>
-          </header>
-          {sponsor.recentActivity == null ? (
-            <p className="dashboard-message">Point activity is unavailable. Check the server logs for the failed query.</p>
-          ) : sponsor.recentActivity.length === 0 ? (
-            <p className="dashboard-message">No point activity for this sponsor yet.</p>
-          ) : (
-            <ul className="sponsor-list">
-              {sponsor.recentActivity.map((item) => (
-                <li className="sponsor-list-item" key={item.id}>
-                  <div>
-                    <span className="sponsor-list-title">{item.driver}</span>
-                    <span className="sponsor-list-detail">{formatDate(item.date)} · {item.reason}</span>
-                  </div>
-                  <span className={`sponsor-points ${item.points < 0 ? 'sponsor-points-negative' : ''}`}>
-                    {item.points > 0 ? '+' : ''}{item.points} pts
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       </div>
     </main>
   );

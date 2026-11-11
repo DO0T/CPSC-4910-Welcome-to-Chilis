@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
@@ -6,7 +7,6 @@ import './driverdashboard.css';
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
 
-const SPONSORS_PER_PAGE = 5;
 const SPONSOR_FILTERS = [
   { value: 'all', label: 'All sponsors' },
   { value: 'available', label: 'Open for applications' },
@@ -114,7 +114,6 @@ function DriverDashboard() {
   const [applicationNotice, setApplicationNotice] = useState({ text: '', error: false });
   const [sponsorSearch, setSponsorSearch] = useState('');
   const [sponsorFilter, setSponsorFilter] = useState('all');
-  const [visibleSponsorCount, setVisibleSponsorCount] = useState(SPONSORS_PER_PAGE);
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -374,19 +373,19 @@ function DriverDashboard() {
     sponsor.companyName.toLocaleLowerCase().includes(normalizedSearch) &&
     (sponsorFilter === 'all' || sponsor.availability === sponsorFilter)
   );
-  const visibleSponsors = filteredSponsors.slice(0, visibleSponsorCount);
   const trackedApplications = sponsors.data
     .filter((sponsor) => ['PENDING', 'APPROVED', 'DENIED'].includes(sponsor.applicationStatus))
     .sort((a, b) => new Date(b.appliedAt || 0).getTime() - new Date(a.appliedAt || 0).getTime());
   const pendingApplicationCount = trackedApplications.filter((sponsor) => sponsor.applicationStatus === 'PENDING').length;
 
   return (
-    <main className="dashboard-page">
+    <main className="dashboard-page driver-dashboard">
       <div className="dashboard-content">
         <header className="dashboard-topbar">
           <div>
             <p className="dashboard-eyebrow">Driver dashboard</p>
             <h1 className="dashboard-greeting">Welcome back, {firstName}</h1>
+            <p className="dashboard-section-description">Track your points, sponsors, and rewards in one place.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
             <Link className="driver-catalog-link" to="/point-disputes">Point disputes</Link>
@@ -396,6 +395,30 @@ function DriverDashboard() {
             <LogoutButton />
           </nav>
         </header>
+
+        <section className="dashboard-card" aria-labelledby="points-heading">
+          <header className="dashboard-card-header">
+            <p className="dashboard-eyebrow">Your balance</p>
+            {points.loading ? (
+              <p className="dashboard-message">Loading your balance…</p>
+            ) : points.error ? (
+              <p className="dashboard-message" role="alert">{points.error}</p>
+            ) : (
+              <>
+                <h2 id="points-heading" className="dashboard-points-value">
+                  {points.data.total_points.toLocaleString()} <span className="dashboard-points-unit">pts</span>
+                </h2>
+                <p className="dashboard-points-delta">
+                  {formatPoints(pointsDeltaThisWeek)} this week
+                </p>
+                {points.data.unassigned_points !== 0 && points.data.unassigned_points != null && (
+                  <p className="dashboard-points-delta">{points.data.unassigned_points.toLocaleString()} unassigned points are kept separately.</p>
+                )}
+              </>
+            )}
+          </header>
+        </section>
+
 
         <section className="dashboard-card" aria-labelledby="driver-memberships-heading">
           <header className="dashboard-card-header driver-memberships-header">
@@ -418,8 +441,8 @@ function DriverDashboard() {
           ) : memberships.data.length === 0 ? (
             <p className="dashboard-message">No sponsors yet. Apply to a sponsor below to get started.</p>
           ) : (
-            <ul className="dashboard-sponsor-list">
-              {memberships.data.map((membership) => (
+            <SmartList items={memberships.data} label="sponsors" options={[{key:'name',label:'Sponsor',value:x=>x.companyName},{key:'active',label:'Current status',value:x=>x.isActive ? 'Current' : 'Other'}]}>{visibleItems => (<ul className="dashboard-sponsor-list">
+              {visibleItems.map((membership) => (
                 <li className="dashboard-sponsor-item driver-membership-item" key={membership.sponsorId}>
                   <h3>{membership.companyName}</h3>
                   {membership.isActive ? (
@@ -432,7 +455,7 @@ function DriverDashboard() {
                   )}
                 </li>
               ))}
-            </ul>
+            </ul>)}</SmartList>
           )}
         </section>
 
@@ -465,8 +488,8 @@ function DriverDashboard() {
                 {pendingApplicationCount === 0 ? 'No requests awaiting review'
                   : `${pendingApplicationCount} request${pendingApplicationCount === 1 ? '' : 's'} awaiting review`}
               </p>
-              <ul className="driver-application-status-list">
-                {trackedApplications.map((sponsor) => (
+              <SmartList items={trackedApplications} label="applications" options={[{key:'name',label:'Sponsor',value:x=>x.companyName},{key:'date',label:'Date applied',type:'date',value:x=>x.appliedAt},{key:'status',label:'Status',value:x=>x.applicationStatus}]}>{visibleItems => (<ul className="driver-application-status-list">
+                {visibleItems.map((sponsor) => (
                   <li className="driver-application-status-item" key={sponsor.sponsorId}>
                     <div className="driver-application-status-top">
                       <div>
@@ -488,45 +511,23 @@ function DriverDashboard() {
                     )}
                   </li>
                 ))}
-              </ul>
+              </ul>)}</SmartList>
             </>
           )}
         </section>
 
-        <section className="dashboard-card" aria-labelledby="points-heading">
-          <header className="dashboard-card-header">
-            <p className="dashboard-eyebrow">Your balance</p>
-            {points.loading ? (
-              <p className="dashboard-message">Loading your balance…</p>
-            ) : points.error ? (
-              <p className="dashboard-message" role="alert">{points.error}</p>
-            ) : (
-              <>
-                <h2 id="points-heading" className="dashboard-points-value">
-                  {points.data.total_points.toLocaleString()} <span className="dashboard-points-unit">pts</span>
-                </h2>
-                <p className="dashboard-points-delta">
-                  {formatPoints(pointsDeltaThisWeek)} this week
-                </p>
-                {points.data.unassigned_points !== 0 && points.data.unassigned_points != null && (
-                  <p className="dashboard-points-delta">{points.data.unassigned_points.toLocaleString()} unassigned points are kept separately.</p>
-                )}
-              </>
-            )}
-          </header>
-        </section>
 
         {(formerAccess.error || formerAccess.data.length > 0) && (
           <section className="dashboard-card" aria-labelledby="former-access-heading">
             <header className="dashboard-card-header"><h2 id="former-access-heading">Points from former sponsors</h2></header>
             {formerAccess.error && <p role="alert">{formerAccess.error}</p>}
-            <ul>{formerAccess.data.map(item => (
+            <SmartList items={formerAccess.data} label="former sponsors" options={[{key:'name',label:'Sponsor',value:x=>x.companyName},{key:'points',label:'Points',type:'number',value:x=>x.points},{key:'removed',label:'Removal date',type:'date',value:x=>x.removedAt}]}>{visibleItems => (<ul>{visibleItems.map(item => (
               <li key={`${item.companyName}-${item.removedAt}`}>
                 {item.companyName}: {item.points.toLocaleString()} points. {item.permitted
                   ? `Policy permits use until ${new Date(item.expiresAt).toLocaleString()}.`
                   : 'Point use is not currently permitted.'}
               </li>
-            ))}</ul>
+            ))}</ul>)}</SmartList>
           </section>
         )}
 
@@ -557,7 +558,6 @@ function DriverDashboard() {
                     placeholder="Search by organization name"
                     onChange={(event) => {
                       setSponsorSearch(event.target.value);
-                      setVisibleSponsorCount(SPONSORS_PER_PAGE);
                     }} />
                 </div>
                 <div className="dashboard-sponsor-control">
@@ -565,7 +565,6 @@ function DriverDashboard() {
                   <select id="sponsor-filter" value={sponsorFilter}
                     onChange={(event) => {
                       setSponsorFilter(event.target.value);
-                      setVisibleSponsorCount(SPONSORS_PER_PAGE);
                     }}>
                     {SPONSOR_FILTERS.map((filter) => (
                       <option value={filter.value} key={filter.value}>{filter.label}</option>
@@ -577,11 +576,9 @@ function DriverDashboard() {
                 <p className="dashboard-message">No sponsors match your search or filter. Try another name or status.</p>
               ) : (
                 <>
-                  <p className="dashboard-sponsor-count" role="status">
-                    Showing {visibleSponsors.length} of {filteredSponsors.length} sponsors
-                  </p>
+                  <SmartList items={filteredSponsors} label="available sponsors" options={[{key:'name',label:'Sponsor',value:x=>x.companyName},{key:'status',label:'Status',value:x=>x.availability}]}>{visibleItems => (
                   <ul className="dashboard-sponsor-list">
-                    {visibleSponsors.map((sponsor) => (
+                    {visibleItems.map((sponsor) => (
                       <li className="dashboard-sponsor-item" key={sponsor.sponsorId}>
                         <div>
                           <h3>{sponsor.companyName}</h3>
@@ -600,13 +597,7 @@ function DriverDashboard() {
                       </li>
                     ))}
                   </ul>
-                  {visibleSponsorCount < filteredSponsors.length && (
-                    <div className="dashboard-sponsor-more">
-                      <button type="button" onClick={() => setVisibleSponsorCount((count) => count + SPONSORS_PER_PAGE)}>
-                        Show more
-                      </button>
-                    </div>
-                  )}
+                  )}</SmartList>
                 </>
               )}
             </>
@@ -626,8 +617,8 @@ function DriverDashboard() {
           ) : activityItems.length === 0 ? (
             <p className="dashboard-message">No point activity yet.</p>
           ) : (
-            <dl className="dashboard-details">
-              {activityItems.map((item) => (
+            <SmartList items={activityItems} label="point activity" options={[{key:'date',label:'Date',type:'date',value:x=>x.date},{key:'description',label:'Reason',value:x=>x.description},{key:'points',label:'Points',type:'number',value:x=>x.points}]}>{visibleItems => (<dl className="dashboard-details">
+              {visibleItems.map((item) => (
                 <div className="dashboard-detail" key={item.id}>
                   <dt>{formatDate(item.date)}</dt>
                   <dd>
@@ -636,7 +627,7 @@ function DriverDashboard() {
                   </dd>
                 </div>
               ))}
-            </dl>
+            </dl>)}</SmartList>
           )}
         </section>
 
@@ -649,14 +640,14 @@ function DriverDashboard() {
           {MOCK_ALERTS.length === 0 ? (
             <p className="dashboard-message">You're all caught up — no new alerts.</p>
           ) : (
-            <ul className="dashboard-alert-list">
-              {MOCK_ALERTS.map((alert) => (
+            <SmartList items={MOCK_ALERTS} label="alerts" options={[{key:'date',label:'Date',type:'date',value:x=>x.date},{key:'message',label:'Message',value:x=>x.message}]}>{visibleItems => (<ul className="dashboard-alert-list">
+              {visibleItems.map((alert) => (
                 <li className="dashboard-alert-item" key={alert.id}>
                   <span className="dashboard-alert-date">{formatDate(alert.date)}</span>
                   <span className="dashboard-alert-message">{alert.message}</span>
                 </li>
               ))}
-            </ul>
+            </ul>)}</SmartList>
           )}
         </section>
       </div>

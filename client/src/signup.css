@@ -216,3 +216,19 @@
     grid-template-columns: 1fr;
   }
 }
+.signup-page { background:#f8f5ee; color:#302b26; }
+.signup-eyebrow { color:#9e392e; font-size:11px; letter-spacing:.14em; }
+.signup-heading h1, .signup-role-fieldset legend, .signup-role-option strong, .signup-field label { color:#302b26; }
+.signup-heading > p:last-child, .signup-role-option small, .signup-field label span, .signup-login { color:#706459; }
+.signup-card { box-shadow:0 12px 40px rgba(62,48,41,.06); }
+.signup-role-fieldset { background:#f0e7da; }
+.signup-role-option { border-color:#dfd5c8; }
+.signup-role-option.is-selected { border-color:#a83229; }
+.signup-role-option input { accent-color:#a83229; }
+.signup-field input { border-color:#d8cfc3; color:#302b26; }
+.signup-role-option:focus-within, .signup-field input:focus-visible, .signup-submit:focus-visible { outline-color:#a83229; }
+.signup-submit { background:#a83229; border-radius:8px; }
+.signup-submit:hover { background:#81271f; }
+.signup-login { border-color:#eee6dc; }
+.signup-login a { color:#943329; }
+

@@ -14,3 +14,16 @@
 .login-card-body a { color: #315e73; font-weight: 600; }
 .login-card-body p { margin-top: 18px; color: #55768d; }
 .login-card-body .login-error { margin: 0 0 18px; padding: 12px 14px; border-radius: 10px; background: #fff0ee; color: #9e2525; font-weight: 600; }
+.login-page { background:#f8f5ee; color:#302b26; }
+.login-page .welcome-brand { color:#3e3029; }
+.login-page .login-back { color:#51463e; border-color:#d9cfc2; background:transparent; }
+.login-card { box-shadow:0 12px 40px rgba(62,48,41,.06); }
+.login-card-heading { background:#f0e7da; }
+.login-card-heading h1, .login-card label { color:#302b26; }
+.login-card-heading p, .login-card-body p { color:#706459; }
+.login-card input { color:#302b26; border-color:#d8cfc3; }
+.login-password-toggle, .login-card-body a { color:#943329; }
+.login-page .welcome-button-primary { background:#a83229; color:#fff; border-radius:8px; }
+.login-page .welcome-button-primary:hover { background:#81271f; }
+.login-page a:focus-visible, .login-page button:focus-visible, .login-page input:focus-visible { outline:3px solid #a83229; outline-offset:3px; }
+

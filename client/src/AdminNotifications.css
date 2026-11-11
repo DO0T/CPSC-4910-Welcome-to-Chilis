@@ -2,8 +2,8 @@
   min-height: 100vh;
   box-sizing: border-box;
   padding: 36px 20px;
-  background: #f2f7f5;
-  color: #29485f;
+  background: #f8f5ee;
+  color: #302b26;
   text-align: left;
 }
 
@@ -18,7 +18,7 @@
   gap: 10px;
   margin: 20px 0;
   padding: 20px;
-  border: 1px solid #e8efec;
+  border: 1px solid #eee6dc;
   border-radius: 14px;
   background: white;
 }
@@ -28,7 +28,7 @@
   box-sizing: border-box;
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #cbd9d7;
+  border: 1px solid #d8cfc3;
   border-radius: 8px;
   font: inherit;
 }
@@ -38,9 +38,9 @@
 .site-notices-list button {
   width: fit-content;
   padding: 9px 16px;
-  border: 1px solid #29485f;
+  border: 1px solid #302b26;
   border-radius: 999px;
-  background: #29485f;
+  background: #a83229;
   color: white;
   font: inherit;
   cursor: pointer;
@@ -52,6 +52,6 @@
 }
 
 .site-notices-list li p { margin: 0; }
-.site-notices-list li small { color: #55768d; }
+.site-notices-list li small { color: #706459; }
 .site-notices-error { color: #9e2525; }
 .site-notices-success { color: #1f5c37; }

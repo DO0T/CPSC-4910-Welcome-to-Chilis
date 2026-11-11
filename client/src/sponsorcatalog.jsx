@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
@@ -159,7 +160,7 @@ function SponsorCatalog() {
   return <main className="dashboard-page sponsor-catalog">
     <div className="dashboard-content">
       <header className="dashboard-topbar">
-        <div><p className="dashboard-eyebrow">Sponsor catalog</p><h1 className="dashboard-greeting">{catalog.companyName}</h1></div>
+        <div><p className="dashboard-eyebrow">Sponsor catalog</p><h1 className="dashboard-greeting">{catalog.companyName}</h1><p className="dashboard-section-description">Choose and manage rewards for your drivers.</p></div>
         <nav className="dashboard-nav" aria-label="Account actions">
           <Link className="catalog-nav-link" to="/sponsor-dashboard">Dashboard</Link>
           <LogoutButton />
@@ -178,8 +179,8 @@ function SponsorCatalog() {
           <span className="catalog-count">{catalog.items.length} {catalog.items.length === 1 ? 'item' : 'items'}</span>
         </header>
         {catalog.items.length === 0 ? <p className="dashboard-message">No items yet. Search {usingEbay ? 'eBay listings' : 'sample products'} below to choose the first reward.</p> :
-          <div className="catalog-list">
-            {catalog.items.map((item) => <article className="catalog-item" key={item.id}>
+          <SmartList items={catalog.items} label="catalog" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost},{key:'price',label:'Price',type:'number',value:x=>x.effectivePrice}]}>{visibleItems => (<div className="catalog-list">
+            {visibleItems.map((item) => <article className="catalog-item" key={item.id}>
               <ListingImage item={item} />
               <div className="catalog-item-body">
                 <h3>{item.title}</h3>
@@ -204,7 +205,7 @@ function SponsorCatalog() {
                 </div>
               </div>
             </article>)}
-          </div>}
+          </div>)}</SmartList>}
       </section>
 
       <section className="dashboard-card" aria-labelledby="catalog-search-heading">
@@ -214,8 +215,8 @@ function SponsorCatalog() {
             <label htmlFor="catalog-query">Search {usingEbay ? 'eBay listings' : 'sample products'}</label>
             <div><input id="catalog-query" type="search" minLength="2" maxLength="100" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try phone" /><button type="submit" disabled={searching || Boolean(busyId)}>{searching ? 'Searching…' : 'Search'}</button></div>
           </form>
-          {results && (results.length ? <div className="catalog-results">
-            {results.map((item) => <article className="catalog-result" key={item.itemId}>
+          {results && (results.length ? <SmartList items={results} label="search results" options={[{key:'title',label:'Name',value:x=>x.title},{key:'price',label:'Price',type:'number',value:x=>x.price}]}>{visibleItems => (<div className="catalog-results">
+            {visibleItems.map((item) => <article className="catalog-result" key={item.itemId}>
               <ListingImage item={item} />
               <div><h3>{item.title}</h3><p>{dollars(item.price)}{item.mediaRating ? ` · ${item.mediaRating} rated` : ''}</p>
                 {!item.available ? <span className="catalog-item-meta">Listing unavailable</span> : selectedItems.has(item.itemId) ? <span className="catalog-item-meta">Already in your catalog</span> :
@@ -226,7 +227,7 @@ function SponsorCatalog() {
                 </div>}
               </div>
             </article>)}
-          </div> : <p className="catalog-empty-search">No {usingEbay ? 'eBay listings' : 'sample products'} found. Try a different search.</p>)}
+          </div>)}</SmartList> : <p className="catalog-empty-search">No {usingEbay ? 'eBay listings' : 'sample products'} found. Try a different search.</p>)}
         </div>
       </section>
     </div>

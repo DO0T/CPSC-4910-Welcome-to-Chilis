@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "./password-pages.css";
 import { useSearchParams, Link } from "react-router-dom";
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? "http://localhost:5000" : "http://52.23.134.146:5000");
@@ -53,8 +54,10 @@ export default function ResetPassword() {
   };
 
   return (
-    <div style={{ maxWidth: "420px", margin: "4rem auto", padding: "2rem", border: "1px solid #ccc", borderRadius: "8px" }}>
-      <h2>Set New Password</h2>
+    <div className="password-page">
+      <p className="page-eyebrow">Account security</p>
+      <h1>Set new password</h1>
+      <p className="page-subtitle">Choose a new password for your account.</p>
       
       {message && (
         <div style={{ color: "green", marginBottom: "1rem" }}>

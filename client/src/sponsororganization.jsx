@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
@@ -111,6 +112,7 @@ function SponsorOrganization() {
           <div>
             <p className="dashboard-eyebrow">Sponsor info</p>
             <h1 className="dashboard-greeting">{organization.companyName}</h1>
+            <p className="dashboard-section-description">Review your organization details and sponsor users.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
             <Link className="sponsor-dashboard-link" to="/sponsor-dashboard">Dashboard</Link>
@@ -198,8 +200,8 @@ function SponsorOrganization() {
             <p className="dashboard-eyebrow">Team</p>
             <h2 id="org-team-heading" className="sponsor-section-title">Sponsor users</h2>
           </header>
-          <ul className="sponsor-list">
-            {teammates.map((teammate) => (
+          <SmartList items={teammates} label="sponsor users" options={[{key:'name',label:'Name',value:x=>x.name},{key:'email',label:'Email',value:x=>x.email}]}>{visibleItems => (<ul className="sponsor-list">
+            {visibleItems.map((teammate) => (
               <li className="sponsor-list-item" key={teammate.id}>
                 <div>
                   <span className="sponsor-list-title">{teammate.name}</span>
@@ -207,7 +209,7 @@ function SponsorOrganization() {
                 </div>
               </li>
             ))}
-          </ul>
+          </ul>)}</SmartList>
         </section>
       </div>
     </main>
