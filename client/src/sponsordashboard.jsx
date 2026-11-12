@@ -322,6 +322,7 @@ function SponsorDashboard() {
             <p className="dashboard-section-description">Manage your drivers, applications, and rewards.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
+            <Link className="sponsor-dashboard-link" to="/messages">Messages</Link>
             <Link className="sponsor-dashboard-link" to="/support">Support</Link>
             <Link className="sponsor-dashboard-link" to="/point-disputes">Point disputes</Link>
             <Link className="sponsor-dashboard-link" to="/sponsor-drivers">Drivers &amp; points</Link>

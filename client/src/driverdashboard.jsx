@@ -388,6 +388,7 @@ function DriverDashboard() {
             <p className="dashboard-section-description">Track your points, sponsors, and rewards in one place.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Account actions">
+            <Link className="driver-catalog-link" to="/messages">Messages</Link>
             <Link className="driver-catalog-link" to="/support">Support</Link>
             <Link className="driver-catalog-link" to="/point-disputes">Point disputes</Link>
             <button type="button" onClick={() => navigate('/editprofile')}>

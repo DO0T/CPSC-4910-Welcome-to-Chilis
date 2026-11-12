@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
 const IDLE_LIMIT_MS = 5 * 60 * 1000;
 const WARNING_MS = 10 * 1000;
-const DASHBOARD_PATHS = new Set(['/driver-dashboard', '/sponsor-dashboard', '/admin-dashboard']);
+const DASHBOARD_PATHS = new Set(['/driver-dashboard', '/sponsor-dashboard', '/admin-dashboard', '/messages']);
 const AUTH_PATHS = new Set(['/login', '/signup', '/forgot-password', '/reset-password']);
 
 function AlertSystem() {
@@ -42,6 +42,8 @@ function AlertSystem() {
       return;
     }
     loadAlerts();
+    const timer = window.setInterval(() => { if (!document.hidden) loadAlerts(); }, 10000);
+    return () => window.clearInterval(timer);
   }, [showAlerts, location.pathname, loadAlerts]);
 
   useEffect(() => {

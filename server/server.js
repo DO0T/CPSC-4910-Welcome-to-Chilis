@@ -22,6 +22,7 @@ const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createPostRemovalRouter } = require('./post-removal');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
+const { createMessagingRouter } = require('./messaging');
 const { createSupportRouter } = require('./support');
 const { createPointDisputesRouter } = require('./point-disputes');
 const { createSponsorUsersRouter, getSponsorOrgForUser, driverBelongsToSponsor } = require('./sponsor-users');
@@ -155,6 +156,7 @@ app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter
 app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter(pool));
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
+app.use('/api/messaging', requireLogin, createMessagingRouter(pool));
 app.use('/api/support', requireLogin, createSupportRouter(pool));
 app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
 app.use('/api/sponsor/policy', requireLogin);
