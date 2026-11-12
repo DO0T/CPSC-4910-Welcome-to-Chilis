@@ -19,6 +19,7 @@ function CatalogImage({ item }) {
 
 function DriverCatalog() {
   const navigate = useNavigate();
+  const formerSponsorId = new URLSearchParams(window.location.search).get('sponsorId');
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -93,7 +94,7 @@ function DriverCatalog() {
     const controller = new AbortController();
     async function loadCatalog() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/driver/catalog`, {
+        const response = await fetch(`${API_BASE_URL}/api/driver/catalog${formerSponsorId ? `?sponsorId=${encodeURIComponent(formerSponsorId)}` : ''}`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
@@ -113,7 +114,7 @@ function DriverCatalog() {
     }
     loadCatalog();
     return () => controller.abort();
-  }, [navigate]);
+  }, [navigate, formerSponsorId]);
 
   return (
     <main className="dashboard-page driver-catalog">
@@ -133,7 +134,7 @@ function DriverCatalog() {
         <section className="dashboard-card" aria-labelledby="driver-catalog-heading">
           <header className="dashboard-card-header">
             <h2 id="driver-catalog-heading">Available rewards</h2>
-            <p className="dashboard-section-description">Items selected by your current sponsor.</p>
+            <p className="dashboard-section-description">Items selected by this sponsor.</p>
             {catalog && (
               <p className="dashboard-section-description">
                 {Number.isFinite(catalog.pointValue) && catalog.pointValue > 0

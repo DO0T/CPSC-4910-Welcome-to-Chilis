@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 
 jest.mock('mysql2/promise', () => ({ createPool: jest.fn() }));
 jest.mock('bcrypt', () => ({ compare: jest.fn(), hash: jest.fn() }));
+jest.mock('nodemailer', () => ({ createTransport: () => ({ sendMail: jest.fn().mockResolvedValue({}) }) }));
 
 const connection = {
   query: jest.fn(),
@@ -268,6 +269,10 @@ test('sponsor dropping a driver removes the membership for their own organizatio
     .mockResolvedValueOnce([[{ user_id: 12, sponsor_id: 7, name: 'Dana', email: 'driver@example.com', company_name: 'Acme Trucking' }]])
     .mockResolvedValueOnce([[SPONSOR_ORG]])
     .mockResolvedValueOnce([[{ found: 1 }]])
+    .mockResolvedValueOnce([[{ found: 1 }]])
+    .mockResolvedValueOnce([[{ post_removal_days: 30 }]])
+    .mockResolvedValueOnce([{}]) // access
+    .mockResolvedValueOnce([{}]) // alert
     .mockResolvedValueOnce([{}]) // delete membership
     .mockResolvedValueOnce([{}]) // update drivers
     .mockResolvedValueOnce([{}]); // audit log

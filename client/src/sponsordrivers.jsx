@@ -157,6 +157,20 @@ function SponsorDrivers() {
     }
   }
 
+  async function dropDriver(driver) {
+    const reason = window.prompt(`Enter a reason for dropping ${driver.name}:`);
+    if (reason === null) return;
+    if (!reason.trim()) { setNotice({ text: 'A reason is required.', error: true }); return; }
+    setBusy(`drop-${driver.id}`);
+    try {
+      const data = await api(`/api/admin/drivers/${driver.id}/drop`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) });
+      setNotice({ text: data.message, error: false });
+      setDetails(null);
+      await loadDrivers();
+    } catch (error) { setNotice({ text: error.message, error: true }); }
+    finally { setBusy(''); }
+  }
+
   async function viewAsDriver(driver) {
     setBusy(`view-${driver.id}`);
     setNotice({ text: '', error: false });
@@ -245,6 +259,7 @@ function SponsorDrivers() {
                         onClick={() => startPointChange(driver)}>
                         Change points
                       </button>
+                      <button type="button" className="sponsor-cancel-button" disabled={busy !== ''} onClick={() => dropDriver(driver)}>Drop driver</button>
                       <button type="button" className="sponsor-approve-button" disabled={busy !== ''}
                         onClick={() => viewAsDriver(driver)}>
                         {busy === `view-${driver.id}` ? 'Switching…' : 'View as driver'}

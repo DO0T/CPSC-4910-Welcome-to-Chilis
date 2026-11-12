@@ -43,13 +43,13 @@ function createPostRemovalRouter(pool) {
   router.get('/driver/post-removal-access', async (req, res) => {
     if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
     try {
-      const [rows] = await pool.query(`SELECT s.company_name, a.removed_at, a.expires_at,
+      const [rows] = await pool.query(`SELECT s.sponsor_id, s.company_name, a.removed_at, a.expires_at,
         (a.expires_at IS NOT NULL AND a.expires_at > NOW()) AS permitted,
         COALESCE((SELECT SUM(p.point_change) FROM DriverPoints p WHERE p.driver_id = a.driver_id AND p.sponsor_id = a.sponsor_id), 0) AS points
         FROM DriverPostRemovalAccess a JOIN Sponsors s ON s.sponsor_id = a.sponsor_id
         WHERE a.driver_id = ? AND NOT EXISTS (SELECT 1 FROM DriverSponsorships ds WHERE ds.driver_id = a.driver_id AND ds.sponsor_id = a.sponsor_id)
         ORDER BY a.removed_at DESC`, [req.userId]);
-      return res.json(rows.map(row => ({ companyName: row.company_name, removedAt: row.removed_at, expiresAt: row.expires_at, permitted: Boolean(row.permitted), points: Number(row.points) })));
+      return res.json(rows.map(row => ({ sponsorId: row.sponsor_id, companyName: row.company_name, removedAt: row.removed_at, expiresAt: row.expires_at, permitted: Boolean(row.permitted), points: Number(row.points) })));
     } catch (error) {
       console.error('Load post-removal access error:', error);
       return res.status(500).json({ message: 'Unable to load post-removal point access' });

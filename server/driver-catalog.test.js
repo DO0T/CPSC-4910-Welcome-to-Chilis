@@ -23,7 +23,7 @@ test('loads only approved, available items from the active sponsor and calculate
     { id: 3, title: 'Reward A', image_url: 'https://example.com/a.jpg', item_url: 'https://example.com/item', media_rating: 'PG', ebay_price: '10.01', price_override: null, currency: 'USD' },
     { id: 4, title: 'Reward B', image_url: null, ebay_price: '10.00', price_override: '5.00', currency: 'USD' },
   ] });
-  const response = await request(app).get('/api/driver/catalog?sponsorId=999');
+  const response = await request(app).get('/api/driver/catalog');
   expect(response.statusCode).toBe(200);
   expect(response.body).toEqual({
     sponsorId: 7,
@@ -79,4 +79,33 @@ test('reports a missing driver account or migration', async () => {
     Object.assign(new Error('Missing table'), { code: 'ER_NO_SUCH_TABLE' })
   );
   expect((await request(missingTable.app).get('/api/driver/catalog')).statusCode).toBe(503);
+});
+
+
+test('former sponsor catalog requires unexpired access for the signed-in driver', async () => {
+  const { app, pool } = setup({ drivers: [] });
+  const response = await request(app).get('/api/driver/catalog?sponsorId=7');
+  expect(response.statusCode).toBe(403);
+  expect(pool.query.mock.calls[0][0]).toContain('a.expires_at > NOW()');
+  expect(pool.query.mock.calls[0][1]).toEqual([42, 42, 7]);
+});
+
+test('former sponsor catalog loads rewards when access is permitted', async () => {
+  const { app, pool } = setup({ drivers: [{ sponsor_id: 7, company_name: 'Acme', point_value: '0.25', balance: 20 }] });
+  const response = await request(app).get('/api/driver/catalog?sponsorId=7');
+  expect(response.statusCode).toBe(200);
+  expect(response.body.balance).toBe(20);
+  expect(pool.query.mock.calls[1][1]).toEqual([7]);
+});
+
+
+test('purchase denies a former sponsor after access expires', async () => {
+  const connection = { beginTransaction: jest.fn(), rollback: jest.fn(), release: jest.fn(), query: jest.fn().mockResolvedValueOnce([[{ sponsor_id: null }]]).mockResolvedValueOnce([[]]) };
+  const app = express(); app.use(express.json());
+  app.use((req, res, next) => { req.userId = 42; req.userRole = 'Driver'; next(); });
+  app.use('/catalog', createDriverCatalogRouter({ getConnection: async () => connection }));
+  const response = await request(app).post('/catalog/purchase').send({ itemId: 3, sponsorId: 7, pointCost: 10 });
+  expect(response.status).toBe(409);
+  expect(connection.rollback).toHaveBeenCalled();
+  expect(connection.query.mock.calls[1][0]).toContain('a.expires_at > NOW()');
 });

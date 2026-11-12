@@ -525,7 +525,7 @@ function DriverDashboard() {
               <li key={`${item.companyName}-${item.removedAt}`}>
                 {item.companyName}: {item.points.toLocaleString()} points. {item.permitted
                   ? `Policy permits use until ${new Date(item.expiresAt).toLocaleString()}.`
-                  : 'Point use is not currently permitted.'}
+                  : 'Point use is not currently permitted.'} {item.permitted && <Link to={`/driver-catalog?sponsorId=${item.sponsorId}`}>Use points</Link>}
               </li>
             ))}</ul>)}</SmartList>
           </section>

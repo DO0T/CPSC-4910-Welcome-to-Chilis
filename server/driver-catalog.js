@@ -10,6 +10,19 @@ function createDriverCatalogRouter(pool) {
     }
 
     try {
+      const requestedSponsor = req.query.sponsorId === undefined ? null : Number(req.query.sponsorId);
+      if (requestedSponsor !== null && (!Number.isSafeInteger(requestedSponsor) || requestedSponsor <= 0)) return res.status(400).json({ message: 'Invalid sponsor.' });
+      if (requestedSponsor !== null) {
+        const [access] = await pool.query(`SELECT s.sponsor_id, s.company_name, s.point_value,
+          COALESCE((SELECT SUM(point_change) FROM DriverPoints WHERE driver_id = ? AND sponsor_id = s.sponsor_id), 0) AS balance
+          FROM DriverPostRemovalAccess a JOIN Sponsors s ON s.sponsor_id = a.sponsor_id
+          WHERE a.driver_id = ? AND a.sponsor_id = ? AND a.expires_at > NOW()
+          AND NOT EXISTS (SELECT 1 FROM DriverSponsorships ds WHERE ds.driver_id = a.driver_id AND ds.sponsor_id = a.sponsor_id)`, [req.userId, req.userId, requestedSponsor]);
+        if (!access.length) return res.status(403).json({ message: 'Post-removal access is unavailable or expired.' });
+        const driver = access[0];
+        const [items] = await pool.query(`SELECT id, title, image_url, item_url, media_rating, ebay_price, price_override, currency FROM SponsorCatalogItems WHERE sponsor_id = ? AND active = 1 AND is_available = 1 AND family_friendly_confirmed = 1 AND currency = 'USD' ORDER BY created_at DESC, id DESC`, [requestedSponsor]);
+        return res.json({ sponsorId: driver.sponsor_id, companyName: driver.company_name, pointValue: driver.point_value == null ? null : Number(driver.point_value), balance: Number(driver.balance || 0), items: items.map(item => ({ id: item.id, title: item.title, imageUrl: item.image_url || '', itemUrl: item.item_url || '', mediaRating: item.media_rating || null, pointCost: pointCost(item.price_override == null ? item.ebay_price : item.price_override, driver.point_value) })) });
+      }
       const [drivers] = await pool.query(
         `SELECT d.sponsor_id, s.company_name, s.point_value,
                 COALESCE((SELECT SUM(p.point_change) FROM DriverPoints p
@@ -80,17 +93,21 @@ function createDriverCatalogRouter(pool) {
       const [drivers] = await connection.query(
         'SELECT sponsor_id FROM Drivers WHERE user_id = ? FOR UPDATE', [req.userId]
       );
-      if (!drivers.length || Number(drivers[0].sponsor_id) !== sponsorId) {
+      if (!drivers.length) {
+        await connection.rollback();
+        return res.status(404).json({ message: 'Driver account not found.' });
+      }
+      const [access] = await connection.query(`SELECT 1 FROM DriverPostRemovalAccess a WHERE a.driver_id = ? AND a.sponsor_id = ? AND a.expires_at > NOW() AND NOT EXISTS (SELECT 1 FROM DriverSponsorships ds WHERE ds.driver_id = a.driver_id AND ds.sponsor_id = a.sponsor_id)`, [req.userId, sponsorId]);
+      if (Number(drivers[0].sponsor_id) !== sponsorId && !access.length) {
         await connection.rollback();
         return res.status(409).json({ message: 'Your active sponsor changed. Reload the catalog before purchasing.' });
       }
       const [items] = await connection.query(
         `SELECT i.title, i.ebay_price, i.price_override, s.point_value
          FROM SponsorCatalogItems i JOIN Sponsors s ON s.sponsor_id = i.sponsor_id
-         JOIN DriverSponsorships ds ON ds.sponsor_id = i.sponsor_id AND ds.driver_id = ?
-         WHERE i.id = ? AND i.sponsor_id = ? AND i.active = 1 AND i.is_available = 1
+         WHERE (EXISTS (SELECT 1 FROM DriverSponsorships ds WHERE ds.sponsor_id = i.sponsor_id AND ds.driver_id = ?) OR EXISTS (SELECT 1 FROM DriverPostRemovalAccess a WHERE a.sponsor_id = i.sponsor_id AND a.driver_id = ? AND a.expires_at > NOW())) AND i.id = ? AND i.sponsor_id = ? AND i.active = 1 AND i.is_available = 1
            AND i.family_friendly_confirmed = 1 AND i.currency = 'USD' FOR UPDATE`,
-        [req.userId, itemId, sponsorId]
+        [req.userId, req.userId, itemId, sponsorId]
       );
       if (!items.length) {
         await connection.rollback();

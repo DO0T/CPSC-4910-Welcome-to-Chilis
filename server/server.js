@@ -1255,6 +1255,14 @@ app.put(
           ? null
           : Number(sponsorId);
 
+      if (nextRole === "Driver" && existingUser.role === "Driver") {
+        const [currentDrivers] = await connection.query("SELECT sponsor_id FROM Drivers WHERE user_id = ? FOR UPDATE", [targetUserId]);
+        if (currentDrivers.length && Number(currentDrivers[0].sponsor_id || 0) !== Number(parsedSponsorId || 0)) {
+          await connection.rollback();
+          return res.status(400).json({ message: "Use Assign or Drop Drivers from Sponsors to change a driver affiliation." });
+        }
+      }
+
       if (nextRole === "Driver") {
         await connection.query("DELETE FROM SponsorUsers WHERE user_id = ?;", [
           targetUserId,
@@ -1414,7 +1422,7 @@ app.post(
           FROM Drivers d
           JOIN Users u ON u.user_id = d.user_id
           LEFT JOIN Sponsors s ON s.sponsor_id = d.sponsor_id
-          WHERE d.user_id = ? LIMIT 1;
+          WHERE d.user_id = ? LIMIT 1 FOR UPDATE;
         `,
         [driverId]
       );
