@@ -16,6 +16,7 @@ import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
 import AlertSystem from './AlertSystem.jsx';
 import AdminNotifications from './AdminNotifications.jsx';
+import Support from './Support.jsx';
 import PointDisputes from './PointDisputes.jsx';
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/admin-notifications" element={<AdminNotifications />} />
+      <Route path="/support" element={<Support />} />
       <Route path="/point-disputes" element={<PointDisputes />} />
     </Routes>
     <AlertSystem />

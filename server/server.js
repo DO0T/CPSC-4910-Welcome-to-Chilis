@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 require("dotenv").config();
 
 const app = express();
@@ -21,6 +22,7 @@ const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createPostRemovalRouter } = require('./post-removal');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
+const { createSupportRouter } = require('./support');
 const { createPointDisputesRouter } = require('./point-disputes');
 const { createSponsorUsersRouter, getSponsorOrgForUser, driverBelongsToSponsor } = require('./sponsor-users');
 const { loadEbaySecrets } = require('./ebay-secrets');
@@ -153,6 +155,7 @@ app.use('/api/driver/applications', requireLogin, createDriverApplicationsRouter
 app.use('/api/driver/sponsorships', requireLogin, createDriverSponsorshipsRouter(pool));
 app.use('/api/driver/catalog', requireLogin, createDriverCatalogRouter(pool));
 app.use('/api/sponsor/applications', requireLogin, createSponsorApplicationsRouter(pool));
+app.use('/api/support', requireLogin, createSupportRouter(pool));
 app.use('/api/point-disputes', requireLogin, createPointDisputesRouter(pool));
 app.use('/api/sponsor/policy', requireLogin);
 app.use('/api/driver/post-removal-access', requireLogin);
