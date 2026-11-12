@@ -59,7 +59,9 @@ function applicationDateLabel(sponsor) {
 
 function applicationNextStep(sponsor) {
   if (sponsor.applicationStatus === 'PENDING') return 'Waiting for this sponsor to review your request.';
-  if (sponsor.applicationStatus === 'APPROVED') return 'This sponsor approved your application.';
+  if (sponsor.applicationStatus === 'APPROVED') return sponsor.canApply
+    ? 'Your previous application was approved. You can apply again now.'
+    : 'This sponsor approved your application.';
   if (sponsor.canApply) return 'You can apply again now.';
   const reapplyDate = formatApplicationDate(sponsor.canReapplyAt);
   return reapplyDate ? `You can reapply on ${reapplyDate}.` : 'You can reapply 30 days after the decision.';
@@ -502,7 +504,7 @@ function DriverDashboard() {
                       </span>
                     </div>
                     <p className="driver-application-next-step">{applicationNextStep(sponsor)}</p>
-                    {sponsor.applicationStatus === 'DENIED' && sponsor.canApply && (
+                    {sponsor.applicationStatus !== 'PENDING' && sponsor.canApply && (
                       <button type="button" className="driver-reapply-button"
                         disabled={submittingSponsorId !== null}
                         onClick={() => applyToSponsor(sponsor.sponsorId, 'status')}>
