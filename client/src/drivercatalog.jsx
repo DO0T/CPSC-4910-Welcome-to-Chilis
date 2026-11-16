@@ -126,6 +126,7 @@ function DriverCatalog() {
             <p className="dashboard-section-description">Browse rewards available through your sponsor.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Catalog navigation">
+            <Link className="driver-catalog-nav-link" to="/driver-purchases">Purchase history</Link>
             <Link className="driver-catalog-nav-link" to="/driver-dashboard">Dashboard</Link>
             <LogoutButton />
           </nav>
@@ -203,6 +204,7 @@ function DriverCatalog() {
                 <div className="checkout-total"><span>{receipt ? 'Remaining balance' : 'Balance after purchase'}</span><strong>{(receipt ? receipt.balance : catalog.balance - checkoutItem.pointCost).toLocaleString()} pts</strong></div>
               </div>
               <p className="checkout-disclosure">This is a simulated purchase. Points are deducted, but no real order is placed or shipped.</p>
+              {receipt && <p className="checkout-disclosure"><Link to="/driver-purchases">View purchase history and receipts</Link></p>}
               {purchaseError && <p className="checkout-error" role="alert">{purchaseError}</p>}
               {receipt ? <button className="checkout-primary" type="button" onClick={closeCheckout}>Continue shopping</button> : <div className="checkout-actions"><button className="checkout-secondary" type="button" onClick={closeCheckout} disabled={purchasing}>Keep shopping</button><button className="checkout-primary" type="button" onClick={() => purchase(checkoutItem)} disabled={purchasing}>{purchasing ? 'Completing purchase…' : 'Complete purchase'}</button></div>}
             </div>
