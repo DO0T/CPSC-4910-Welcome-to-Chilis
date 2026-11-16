@@ -9,6 +9,7 @@ test('shows saved purchases and receipts across sponsors', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/driver/catalog/purchases/23/details') return route.fulfill({ json: { deliveryAddress: '123 Main St', contactEmail: 'driver@example.com' } });
     if (path === '/api/driver/catalog/purchases/23/cancel') return route.fulfill({ json: { status: 'CANCELLED' } });
     if (path === '/api/driver/catalog/purchases') return route.fulfill({ json: { purchases: [
       { id: 23, sponsorName: 'Acme', itemTitle: 'Phone stand', pointsSpent: 41, status: 'COMPLETED', canCancel: true, purchasedAt: '2026-11-15T12:00:00Z', imageUrl: '' },
@@ -25,12 +26,20 @@ test('shows saved purchases and receipts across sponsors', async ({ page }) => {
   await expect(first.getByText('Receipt number')).toBeVisible();
   await expect(first).toContainText('#23');
   await expect(first).toContainText('No real order was placed or shipped');
+  await first.getByText('Update purchase details').click();
+  await first.getByLabel('Delivery address').fill('123 Main St');
+  await first.getByLabel('Contact email').fill('driver@example.com');
+  const update = page.waitForRequest((req) => req.url().endsWith('/purchases/23/details') && req.method() === 'PATCH');
+  await first.getByRole('button', { name: 'Save details' }).click();
+  expect((await update).postDataJSON()).toEqual({ deliveryAddress: '123 Main St', contactEmail: 'driver@example.com' });
+  await expect(page.getByRole('status')).toContainText('Details updated for Phone stand');
   await expect(page.locator('.purchase-row').filter({ hasText: 'Travel mug' })).toContainText('Cancelled');
   page.once('dialog', (dialog) => dialog.accept());
   await first.getByRole('button', { name: 'Cancel purchase' }).click();
   await expect(first.locator('.purchase-status')).toHaveText('Cancelled');
   await expect(first.getByRole('button', { name: 'Cancel purchase' })).toHaveCount(0);
   await expect(page.getByRole('status')).toContainText('41 points were returned to Acme');
+  await expect(first.getByText('Update purchase details')).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 780 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });

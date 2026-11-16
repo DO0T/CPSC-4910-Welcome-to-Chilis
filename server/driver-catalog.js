@@ -83,7 +83,7 @@ function createDriverCatalogRouter(pool) {
     try {
       const [rows] = await pool.query(
         `SELECT purchase_id, sponsor_id, sponsor_name, catalog_item_id, item_title,
-                item_image_url, points_spent, status, purchased_at,
+                item_image_url, points_spent, status, purchased_at, delivery_address, contact_email,
                 (status = 'COMPLETED' AND purchased_at <= NOW()
                   AND NOW() < DATE_ADD(purchased_at, INTERVAL 24 HOUR)) AS can_cancel
          FROM DriverPurchases WHERE driver_id = ? ORDER BY purchased_at DESC, purchase_id DESC`,
@@ -93,12 +93,44 @@ function createDriverCatalogRouter(pool) {
         id: row.purchase_id, sponsorId: row.sponsor_id, sponsorName: row.sponsor_name,
         itemId: row.catalog_item_id, itemTitle: row.item_title, imageUrl: row.item_image_url || '',
         pointsSpent: Number(row.points_spent), status: row.status, purchasedAt: row.purchased_at,
+        deliveryAddress: row.delivery_address || '', contactEmail: row.contact_email || '',
         canCancel: Number(row.can_cancel) === 1,
       })) });
     } catch (error) {
       console.error('Load purchases error:', error);
-      if (error.code === 'ER_NO_SUCH_TABLE') return res.status(503).json({ message: 'Purchase records are not set up yet.' });
+      if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_FIELD_ERROR') return res.status(503).json({ message: 'Purchase records are not set up yet.' });
       return res.status(500).json({ message: 'Unable to load purchases.' });
+    }
+  });
+
+  router.patch('/purchases/:id/details', async (req, res) => {
+    if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
+    const id = Number(req.params.id);
+    const { deliveryAddress, contactEmail } = req.body || {};
+    if (!Number.isSafeInteger(id) || id <= 0 || typeof deliveryAddress !== 'string' || typeof contactEmail !== 'string') {
+      return res.status(400).json({ message: 'Enter a valid address and contact email.' });
+    }
+    const address = deliveryAddress.trim();
+    const email = contactEmail.trim();
+    if (!address || address.length > 500 || !email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Enter a valid address and contact email.' });
+    }
+    try {
+      const [result] = await pool.query(
+        `UPDATE DriverPurchases SET delivery_address = ?, contact_email = ?
+         WHERE purchase_id = ? AND driver_id = ? AND status = 'COMPLETED'`,
+        [address, email, id, req.userId]
+      );
+      if (!result.affectedRows) {
+        const [rows] = await pool.query('SELECT status FROM DriverPurchases WHERE purchase_id = ? AND driver_id = ?', [id, req.userId]);
+        if (!rows.length) return res.status(404).json({ message: 'Purchase not found.' });
+        return res.status(409).json({ message: 'Cancelled purchases cannot be updated.' });
+      }
+      return res.json({ message: 'Purchase details updated.', deliveryAddress: address, contactEmail: email });
+    } catch (error) {
+      console.error('Update purchase details error:', error);
+      if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_FIELD_ERROR') return res.status(503).json({ message: 'Purchase details are not set up yet.' });
+      return res.status(500).json({ message: 'Unable to update purchase details.' });
     }
   });
 

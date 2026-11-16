@@ -65,6 +65,30 @@ test('prevents non-drivers from reading purchase records', async () => {
   expect(pool.query).not.toHaveBeenCalled();
 });
 
+test('updates purchase details only for the logged-in driver and completed purchase', async () => {
+  const { app, pool } = setup();
+  pool.query.mockResolvedValueOnce([{ affectedRows: 1 }]);
+  const response = await request(app).patch('/catalog/purchases/23/details').send({ deliveryAddress: '  123 Main St  ', contactEmail: '  driver@example.com ', driverId: 999 });
+  expect(response.statusCode).toBe(200);
+  expect(response.body).toMatchObject({ deliveryAddress: '123 Main St', contactEmail: 'driver@example.com' });
+  expect(pool.query.mock.calls[0][0]).toContain("driver_id = ? AND status = 'COMPLETED'");
+  expect(pool.query.mock.calls[0][1]).toEqual(['123 Main St', 'driver@example.com', 23, 42]);
+});
+
+test('rejects invalid details, other drivers, and cancelled purchases', async () => {
+  const invalid = setup();
+  expect((await request(invalid.app).patch('/catalog/purchases/23/details').send({ deliveryAddress: '', contactEmail: 'bad' })).statusCode).toBe(400);
+  expect(invalid.pool.query).not.toHaveBeenCalled();
+  const notOwned = setup();
+  notOwned.pool.query.mockResolvedValueOnce([{ affectedRows: 0 }]).mockResolvedValueOnce([[]]);
+  expect((await request(notOwned.app).patch('/catalog/purchases/23/details').send({ deliveryAddress: '123 Main St', contactEmail: 'd@example.com' })).statusCode).toBe(404);
+  const cancelled = setup();
+  cancelled.pool.query.mockResolvedValueOnce([{ affectedRows: 0 }]).mockResolvedValueOnce([[{ status: 'CANCELLED' }]]);
+  expect((await request(cancelled.app).patch('/catalog/purchases/23/details').send({ deliveryAddress: '123 Main St', contactEmail: 'd@example.com' })).statusCode).toBe(409);
+  const sponsor = setup({ role: 'Sponsor' });
+  expect((await request(sponsor.app).patch('/catalog/purchases/23/details').send({ deliveryAddress: '123 Main St', contactEmail: 'd@example.com' })).statusCode).toBe(403);
+});
+
 test.each([
   ['insufficient sponsor balance', { balance: 39 }, {}],
   ['a switched active sponsor', { sponsor: 8 }, {}],

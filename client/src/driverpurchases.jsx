@@ -21,6 +21,21 @@ function PurchaseImage({ purchase }) {
     : <div className="purchase-image purchase-image-placeholder" aria-hidden="true">Reward</div>;
 }
 
+function PurchaseDetails({ purchase, onSave, busy }) {
+  const [address, setAddress] = useState(purchase.deliveryAddress || '');
+  const [email, setEmail] = useState(purchase.contactEmail || '');
+  return <details className="purchase-edit"><summary>Update purchase details</summary>
+    <form className="purchase-edit-form" onSubmit={(event) => { event.preventDefault(); onSave(purchase, address, email); }}>
+      <p>These details are for this simulated purchase only. Nothing will be shipped or emailed.</p>
+      <label htmlFor={`address-${purchase.id}`}>Delivery address</label>
+      <textarea id={`address-${purchase.id}`} value={address} onChange={(event) => setAddress(event.target.value)} maxLength={500} required rows={3} />
+      <label htmlFor={`email-${purchase.id}`}>Contact email</label>
+      <input id={`email-${purchase.id}`} type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={255} required />
+      <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button>
+    </form>
+  </details>;
+}
+
 export default function DriverPurchases() {
   const navigate = useNavigate();
   const [purchases, setPurchases] = useState([]);
@@ -29,6 +44,33 @@ export default function DriverPurchases() {
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelMessage, setCancelMessage] = useState('');
   const [cancelError, setCancelError] = useState('');
+  const [savingId, setSavingId] = useState(null);
+
+  async function saveDetails(purchase, deliveryAddress, contactEmail) {
+    if (savingId !== null) return;
+    setSavingId(purchase.id);
+    setCancelMessage('');
+    setCancelError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/catalog/purchases/${purchase.id}/details`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${sessionStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryAddress, contactEmail }),
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to update purchase details.');
+      setPurchases((current) => current.map((item) => item.id === purchase.id ? { ...item, deliveryAddress: body.deliveryAddress, contactEmail: body.contactEmail } : item));
+      setCancelMessage(`Details updated for ${purchase.itemTitle}.`);
+    } catch (caught) {
+      setCancelError(caught.message || 'Unable to update purchase details.');
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   async function cancelPurchase(purchase) {
     if (cancellingId !== null || !window.confirm(`Cancel ${purchase.itemTitle}? ${purchase.pointsSpent.toLocaleString()} points will be returned to ${purchase.sponsorName}.`)) return;
@@ -101,6 +143,7 @@ export default function DriverPurchases() {
           : <ul className="purchase-list">{purchases.map((purchase) => <li className="purchase-row" key={purchase.id}>
             <div className="purchase-overview"><PurchaseImage purchase={purchase} /><div className="purchase-info"><h3>{purchase.itemTitle}</h3><p>{purchase.sponsorName} · {purchaseDate(purchase.purchasedAt)}</p><span className={`purchase-status ${purchase.status === 'CANCELLED' ? 'purchase-status-cancelled' : ''}`}>{purchase.status === 'COMPLETED' ? 'Completed' : purchase.status === 'CANCELLED' ? 'Cancelled' : purchase.status}</span></div><strong className="purchase-cost">{purchase.pointsSpent.toLocaleString()} pts</strong></div>
             <details className="purchase-receipt"><summary>View receipt</summary><div className="receipt-content"><h4>Purchase receipt</h4><dl><div><dt>Receipt number</dt><dd>#{purchase.id}</dd></div><div><dt>Item</dt><dd>{purchase.itemTitle}</dd></div><div><dt>Sponsor</dt><dd>{purchase.sponsorName}</dd></div><div><dt>Date</dt><dd>{purchaseDate(purchase.purchasedAt)}</dd></div><div><dt>Status</dt><dd>{purchase.status === 'COMPLETED' ? 'Completed' : purchase.status === 'CANCELLED' ? 'Cancelled' : purchase.status}</dd></div><div><dt>Points spent</dt><dd>{purchase.pointsSpent.toLocaleString()} pts</dd></div></dl><p>This is a simulated purchase. No real order was placed or shipped.</p></div></details>
+            {purchase.status === 'COMPLETED' && <PurchaseDetails purchase={purchase} onSave={saveDetails} busy={savingId !== null} />}
             {purchase.canCancel && <div className="purchase-cancel"><button type="button" disabled={cancellingId !== null} onClick={() => cancelPurchase(purchase)}>{cancellingId === purchase.id ? 'Cancelling…' : 'Cancel purchase'}</button></div>}
           </li>)}</ul>}
       </section>
