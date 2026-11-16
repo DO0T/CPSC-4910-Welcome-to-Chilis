@@ -1,0 +1,17 @@
+.support-page input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid #d8cfc3;
+  border-radius: 8px;
+  font: inherit;
+  color: #302b26;
+  background: #fff;
+}
+.support-tickets { list-style: none; padding: 0; }
+.support-tickets li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-bottom: 1px solid #eee6dc; }
+.support-tickets button { text-align: left; overflow-wrap: anywhere; }
+.support-tickets button[aria-pressed="true"] { outline: 3px solid #d8cfc3; outline-offset: 2px; }
+.support-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.support-actions { margin-top: 24px; }
+.support-page form > button { margin-top: 12px; }
