@@ -448,6 +448,7 @@ function DriverDashboard() {
               {visibleItems.map((membership) => (
                 <li className="dashboard-sponsor-item driver-membership-item" key={membership.sponsorId}>
                   <h3>{membership.companyName}</h3>
+                  <p className="driver-membership-balance">{Number.isFinite(membership.points) ? `${membership.points.toLocaleString()} points` : 'Balance unavailable'}</p>
                   {membership.isActive ? (
                     <span className="driver-membership-label driver-membership-active">Current sponsor</span>
                   ) : (
