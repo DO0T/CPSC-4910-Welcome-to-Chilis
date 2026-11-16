@@ -674,7 +674,7 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
     let effectiveSponsorId =
       sponsor_id != null ? Number(sponsor_id) : driverRows[0].sponsor_id;
 
-    if (!req.isAdmin) {
+    if (req.userRole === 'Sponsor') {
       // Sponsors always award/deduct points on behalf of their OWN organization,
       // even if the driver's currently active sponsor is a different one.
       const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
@@ -730,12 +730,12 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
     await connection.commit();
 
-    const [rows] = req.isAdmin
-      ? await connection.query("SELECT total_points FROM Drivers WHERE user_id = ?;", [driver_id])
-      : await connection.query(
+    const [rows] = req.userRole === 'Sponsor'
+      ? await connection.query(
         "SELECT COALESCE(SUM(point_change), 0) AS total_points FROM DriverPoints WHERE driver_id = ? AND sponsor_id = ?;",
         [driver_id, effectiveSponsorId]
-      );
+      )
+      : await connection.query("SELECT total_points FROM Drivers WHERE user_id = ?;", [driver_id]);
 
     res.status(200).json({
       message: "Driver points updated successfully",

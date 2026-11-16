@@ -51,20 +51,22 @@ test('sponsors cannot change points for another organization', async () => {
   const token = await driverToken('Sponsor');
   const connection = { beginTransaction: jest.fn(), rollback: jest.fn(), release: jest.fn(), query: jest.fn()
     .mockResolvedValueOnce([[{ user_id: 42, sponsor_id: 7 }]])
+    .mockResolvedValueOnce([[{ sponsor_id: 9 }]])
     .mockResolvedValueOnce([[]]) };
   pool.getConnection.mockResolvedValueOnce(connection);
   const response = await request(app).post('/api/driver-points').set('Authorization', `Bearer ${token}`)
     .send({ driver_id: 42, sponsor_id: 7, point_change: 10, reason: 'test' });
   expect(response.statusCode).toBe(403);
-  expect(connection.query.mock.calls[1][1]).toEqual([12, 42, 7]);
+  expect(connection.query.mock.calls[2][1]).toEqual([42, 9, 42, 9]);
   expect(connection.rollback).toHaveBeenCalled();
-  expect(connection.query).toHaveBeenCalledTimes(2);
+  expect(connection.query).toHaveBeenCalledTimes(3);
 });
 
 test('a sponsor may adjust points for a driver in their own organization', async () => {
   const token = await driverToken('Sponsor');
   const connection = { beginTransaction: jest.fn(), rollback: jest.fn(), commit: jest.fn(), release: jest.fn(), query: jest.fn()
     .mockResolvedValueOnce([[{ user_id: 42, sponsor_id: 9, username: 'driver@example.com', point_alerts_enabled: 0 }]])
+    .mockResolvedValueOnce([[{ sponsor_id: 7 }]])
     .mockResolvedValueOnce([[{ driver_id: 42 }]])
     .mockResolvedValueOnce([{}]).mockResolvedValueOnce([{}]).mockResolvedValueOnce([{}])
     .mockResolvedValueOnce([[{ total_points: 50 }]]) };
@@ -72,10 +74,32 @@ test('a sponsor may adjust points for a driver in their own organization', async
   const response = await request(app).post('/api/driver-points').set('Authorization', `Bearer ${token}`)
     .send({ driver_id: 42, sponsor_id: 7, point_change: 10, reason: 'Safe driving' });
   expect(response.statusCode).toBe(200);
-  expect(connection.query.mock.calls[1][1]).toEqual([12, 42, 7]);
-  expect(connection.query.mock.calls[3][1]).toEqual([42, 7, 10, 'Safe driving']);
-  expect(connection.query.mock.calls[5][1]).toEqual([42, 7]);
+  expect(connection.query.mock.calls[2][1]).toEqual([42, 7, 42, 7]);
+  expect(connection.query.mock.calls[4][1]).toEqual([42, 7, 10, 'Safe driving']);
+  expect(connection.query.mock.calls[6][1]).toEqual([42, 7]);
   expect(connection.commit).toHaveBeenCalled();
+});
+
+test('an admin viewing as a sponsor awards points to that sponsor instead of the active sponsor', async () => {
+  const token = await driverToken('Admin');
+  pool.query.mockResolvedValueOnce([[{ user_id: 21, name: 'Sponsor user', username: 'sponsor@example.com', role: 'Sponsor' }]]);
+  const switched = await request(app).post('/api/admin/impersonate').set('Authorization', `Bearer ${token}`).send({ targetUserId: 21 });
+  expect(switched.statusCode).toBe(200);
+  const connection = { beginTransaction: jest.fn(), rollback: jest.fn(), commit: jest.fn(), release: jest.fn(), query: jest.fn()
+    .mockResolvedValueOnce([[{ user_id: 42, sponsor_id: 9, username: 'driver@example.com', point_alerts_enabled: 0 }]])
+    .mockResolvedValueOnce([[{ sponsor_id: 7 }]])
+    .mockResolvedValueOnce([[{ found: 1 }]])
+    .mockResolvedValueOnce([{}]).mockResolvedValueOnce([{}]).mockResolvedValueOnce([{}])
+    .mockResolvedValueOnce([[{ total_points: 50 }]]) };
+  pool.getConnection.mockResolvedValueOnce(connection);
+  const response = await request(app).post('/api/driver-points').set('Authorization', `Bearer ${token}`)
+    .send({ driver_id: 42, sponsor_id: 9, point_change: 10, reason: 'Safe driving' });
+  expect(response.statusCode).toBe(200);
+  expect(response.body.total_points).toBe(50);
+  expect(connection.query.mock.calls[1][1]).toEqual([21]);
+  expect(connection.query.mock.calls[2][1]).toEqual([42, 7, 42, 7]);
+  expect(connection.query.mock.calls[4][1]).toEqual([42, 7, 10, 'Safe driving']);
+  expect(connection.query.mock.calls[6][1]).toEqual([42, 7]);
 });
 
 test('limits recent activity to the active sponsor and session driver', async () => {

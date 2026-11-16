@@ -7,6 +7,7 @@ function setup({ sponsor = 7, item = true, balance = 100, role = 'Driver' } = {}
     beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn(),
     query: jest.fn(async (sql) => {
       if (sql.startsWith('SELECT sponsor_id FROM Drivers')) return [[{ sponsor_id: sponsor }]];
+      if (sql.startsWith('SELECT 1 FROM DriverPostRemovalAccess')) return [[]];
       if (sql.includes('FROM SponsorCatalogItems')) return [item ? [{ title: 'Reward', ebay_price: '10.00', price_override: null, point_value: '0.25' }] : []];
       if (sql.startsWith('SELECT COALESCE')) return [[{ balance }]];
       return [{}];
@@ -49,4 +50,14 @@ test('rejects other roles before accessing the database', async () => {
   const { app, pool } = setup({ role: 'Sponsor' });
   expect((await purchase(app)).statusCode).toBe(403);
   expect(pool.getConnection).not.toHaveBeenCalled();
+});
+
+test('does not use another sponsor balance to cover a purchase', async () => {
+  const { app, connection } = setup({ balance: 39 });
+  const response = await purchase(app);
+  expect(response.statusCode).toBe(409);
+  const balanceQuery = connection.query.mock.calls.find(([sql]) => sql.startsWith('SELECT COALESCE'));
+  expect(balanceQuery[0]).toContain('sponsor_id = ?');
+  expect(balanceQuery[1]).toEqual([42, 7]);
+  expect(connection.commit).not.toHaveBeenCalled();
 });
