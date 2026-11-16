@@ -77,6 +77,26 @@ test('requires login before loading the catalog', async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test('searches sponsor rewards by keyword without changing the cart', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
+  await page.route('**/api/**', (route) => new URL(route.request().url()).pathname === '/api/driver/catalog'
+    ? route.fulfill({ json: { sponsorId: 7, companyName: 'Acme', balance: 100, items: [
+      { id: 3, title: 'Phone stand', pointCost: 41 }, { id: 4, title: 'Travel mug', pointCost: 20 },
+    ] } }) : route.fulfill({ json: { role: 'Driver' } }));
+  await page.goto('http://localhost:5173/driver-catalog');
+  await page.getByRole('button', { name: 'Add Phone stand to cart' }).click();
+  const search = page.getByRole('searchbox', { name: 'Search rewards' });
+  await search.fill('  MUG  ');
+  await expect(page.locator('.driver-catalog-item')).toHaveCount(1);
+  await expect(page.locator('.driver-catalog-item')).toContainText('Travel mug');
+  await search.fill('not in catalog');
+  await expect(page.getByRole('status')).toContainText('No rewards match your search');
+  await search.clear();
+  await expect(page.locator('.driver-catalog-item')).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Cart 1' }).click();
+  await expect(page.locator('.driver-cart')).toContainText('Phone stand');
+});
+
 test('adds and removes rewards and checks out a cart as one purchase', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
   await page.route('https://example.com/phone.png', (route) => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>' }));

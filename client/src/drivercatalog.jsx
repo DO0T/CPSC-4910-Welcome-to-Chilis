@@ -24,6 +24,7 @@ function DriverCatalog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState('');
   const [purchasing, setPurchasing] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState(null);
   const [purchaseError, setPurchaseError] = useState('');
@@ -114,6 +115,7 @@ function DriverCatalog() {
 
     setCart([]);
     setActiveTab('rewards');
+    setSearch('');
     setCatalog(null);
     setLoading(true);
     setError('');
@@ -142,6 +144,9 @@ function DriverCatalog() {
     loadCatalog();
     return () => controller.abort();
   }, [navigate, formerSponsorId]);
+
+  const searchTerm = search.trim().toLocaleLowerCase();
+  const matchingItems = catalog?.items.filter((item) => item.title.toLocaleLowerCase().includes(searchTerm)) || [];
 
   return (
     <main className="dashboard-page driver-catalog">
@@ -175,6 +180,7 @@ function DriverCatalog() {
               </p>
             )}
             {catalog && <div className="catalog-balance"><span>Your {catalog.companyName} balance</span><strong>{catalog.balance.toLocaleString()} <small>points</small></strong></div>}
+            {catalog?.items.length > 0 && <div className="driver-catalog-search"><label htmlFor="reward-search">Search rewards</label><input id="reward-search" type="search" placeholder="Search by product name" value={search} onChange={(event) => setSearch(event.target.value)} /></div>}
           </header>
           {loading ? (
             <p className="dashboard-message" role="status">Loading rewards…</p>
@@ -182,8 +188,10 @@ function DriverCatalog() {
             <p className="dashboard-message" role="alert">{error} <Link to="/driver-dashboard">Back to dashboard</Link></p>
           ) : catalog.items.length === 0 ? (
             <p className="dashboard-message">This sponsor has no available rewards yet. Check back later or choose another sponsor on your dashboard.</p>
+          ) : matchingItems.length === 0 ? (
+            <p className="dashboard-message" role="status">No rewards match your search. Try a different keyword.</p>
           ) : (
-            <SmartList items={catalog.items} label="rewards" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost}]}>{visibleItems => (<ul className="driver-catalog-list">
+            <SmartList items={matchingItems} label="rewards" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost}]}>{visibleItems => (<ul className="driver-catalog-list">
               {visibleItems.map((item) => (
                 <li className="driver-catalog-item" key={item.id}>
                   <button type="button" className="driver-catalog-item-button"

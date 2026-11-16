@@ -74,6 +74,10 @@
 .catalog-balance { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding: 16px 20px; border: 1px solid #d8cfc3; border-radius: 12px; background: #fff; color: #706459; }
 .catalog-balance strong { color: #245c48; font-size: 24px; white-space: nowrap; }
 .catalog-balance small { font-size: 14px; font-weight: 600; }
+.driver-catalog-search { display: flex; flex-direction: column; gap: 6px; max-width: 420px; margin-top: 20px; }
+.driver-catalog-search label { color: #655e56; font-size: 13px; font-weight: 700; }
+.driver-catalog-search input { box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid #d8cfc3; border-radius: 8px; background: #fff; color: #302b26; font: inherit; }
+.driver-catalog-search input:focus-visible { outline: 2px solid #39713a; outline-offset: 2px; }
 .catalog-checkout { width: min(500px, calc(100% - 32px)); max-height: calc(100% - 32px); box-sizing: border-box; padding: 0; border: 0; border-radius: 18px; color: #302b26; background: #fff; box-shadow: 0 18px 70px #142d3980; }
 .catalog-checkout::backdrop { background: #142d39aa; }
 .checkout-content { padding: clamp(24px, 5vw, 36px); }
