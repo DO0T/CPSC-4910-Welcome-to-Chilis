@@ -9,8 +9,9 @@ test('shows saved purchases and receipts across sponsors', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/driver/catalog/purchases/23/cancel') return route.fulfill({ json: { status: 'CANCELLED' } });
     if (path === '/api/driver/catalog/purchases') return route.fulfill({ json: { purchases: [
-      { id: 23, sponsorName: 'Acme', itemTitle: 'Phone stand', pointsSpent: 41, status: 'COMPLETED', purchasedAt: '2026-11-15T12:00:00Z', imageUrl: '' },
+      { id: 23, sponsorName: 'Acme', itemTitle: 'Phone stand', pointsSpent: 41, status: 'COMPLETED', canCancel: true, purchasedAt: '2026-11-15T12:00:00Z', imageUrl: '' },
       { id: 24, sponsorName: 'Other sponsor', itemTitle: 'Travel mug', pointsSpent: 20, status: 'CANCELLED', purchasedAt: '2026-11-14T12:00:00Z', imageUrl: '' },
     ] } });
     return route.fulfill({ json: { role: 'Driver', impersonating: null } });
@@ -25,6 +26,11 @@ test('shows saved purchases and receipts across sponsors', async ({ page }) => {
   await expect(first).toContainText('#23');
   await expect(first).toContainText('No real order was placed or shipped');
   await expect(page.locator('.purchase-row').filter({ hasText: 'Travel mug' })).toContainText('Cancelled');
+  page.once('dialog', (dialog) => dialog.accept());
+  await first.getByRole('button', { name: 'Cancel purchase' }).click();
+  await expect(first.locator('.purchase-status')).toHaveText('Cancelled');
+  await expect(first.getByRole('button', { name: 'Cancel purchase' })).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('41 points were returned to Acme');
   await page.setViewportSize({ width: 360, height: 780 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });

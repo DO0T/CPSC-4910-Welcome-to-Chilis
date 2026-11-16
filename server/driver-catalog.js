@@ -83,7 +83,9 @@ function createDriverCatalogRouter(pool) {
     try {
       const [rows] = await pool.query(
         `SELECT purchase_id, sponsor_id, sponsor_name, catalog_item_id, item_title,
-                item_image_url, points_spent, status, purchased_at
+                item_image_url, points_spent, status, purchased_at,
+                (status = 'COMPLETED' AND purchased_at <= NOW()
+                  AND NOW() < DATE_ADD(purchased_at, INTERVAL 24 HOUR)) AS can_cancel
          FROM DriverPurchases WHERE driver_id = ? ORDER BY purchased_at DESC, purchase_id DESC`,
         [req.userId]
       );
@@ -91,11 +93,58 @@ function createDriverCatalogRouter(pool) {
         id: row.purchase_id, sponsorId: row.sponsor_id, sponsorName: row.sponsor_name,
         itemId: row.catalog_item_id, itemTitle: row.item_title, imageUrl: row.item_image_url || '',
         pointsSpent: Number(row.points_spent), status: row.status, purchasedAt: row.purchased_at,
+        canCancel: Number(row.can_cancel) === 1,
       })) });
     } catch (error) {
       console.error('Load purchases error:', error);
       if (error.code === 'ER_NO_SUCH_TABLE') return res.status(503).json({ message: 'Purchase records are not set up yet.' });
       return res.status(500).json({ message: 'Unable to load purchases.' });
+    }
+  });
+
+  router.post('/purchases/:id/cancel', async (req, res) => {
+    if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid purchase.' });
+    let connection;
+    try {
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      // Lock in the same order as checkout to serialize refunds and point spending.
+      const [drivers] = await connection.query('SELECT user_id FROM Drivers WHERE user_id = ? FOR UPDATE', [req.userId]);
+      if (!drivers.length) {
+        await connection.rollback();
+        return res.status(404).json({ message: 'Driver account not found.' });
+      }
+      const [rows] = await connection.query(
+        `SELECT purchase_id, sponsor_id, item_title, points_spent, status,
+                (purchased_at <= NOW() AND NOW() < DATE_ADD(purchased_at, INTERVAL 24 HOUR)) AS within_window
+         FROM DriverPurchases WHERE purchase_id = ? AND driver_id = ? FOR UPDATE`, [id, req.userId]
+      );
+      if (!rows.length) {
+        await connection.rollback();
+        return res.status(404).json({ message: 'Purchase not found.' });
+      }
+      const purchase = rows[0];
+      if (purchase.status !== 'COMPLETED' || Number(purchase.within_window) !== 1) {
+        await connection.rollback();
+        return res.status(409).json({ message: 'This purchase has already been cancelled or its 24-hour cancellation window has ended.' });
+      }
+      await connection.query('UPDATE DriverPurchases SET status = ? WHERE purchase_id = ? AND driver_id = ?', ['CANCELLED', id, req.userId]);
+      await connection.query('UPDATE Drivers SET total_points = COALESCE(total_points, 0) + ? WHERE user_id = ?', [purchase.points_spent, req.userId]);
+      await connection.query(
+        'INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, ?, ?)',
+        [req.userId, purchase.sponsor_id, purchase.points_spent, `Refund for simulated purchase #${id}: ${purchase.item_title}`.slice(0, 255)]
+      );
+      await connection.commit();
+      return res.json({ message: 'Purchase cancelled and points returned to the original sponsor.', status: 'CANCELLED' });
+    } catch (error) {
+      if (connection) await connection.rollback();
+      console.error('Cancel purchase error:', error);
+      if (error.code === 'ER_NO_SUCH_TABLE') return res.status(503).json({ message: 'Purchase records are not set up yet.' });
+      return res.status(500).json({ message: 'Unable to cancel the purchase.' });
+    } finally {
+      if (connection) connection.release();
     }
   });
 

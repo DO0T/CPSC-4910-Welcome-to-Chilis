@@ -26,6 +26,34 @@ export default function DriverPurchases() {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+  const [cancelMessage, setCancelMessage] = useState('');
+  const [cancelError, setCancelError] = useState('');
+
+  async function cancelPurchase(purchase) {
+    if (cancellingId !== null || !window.confirm(`Cancel ${purchase.itemTitle}? ${purchase.pointsSpent.toLocaleString()} points will be returned to ${purchase.sponsorName}.`)) return;
+    setCancellingId(purchase.id);
+    setCancelMessage('');
+    setCancelError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/catalog/purchases/${purchase.id}/cancel`, {
+        method: 'POST', headers: { Authorization: `Bearer ${sessionStorage.getItem('authToken')}` },
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem('authToken');
+        navigate('/login', { replace: true });
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || 'Unable to cancel the purchase.');
+      setPurchases((current) => current.map((item) => item.id === purchase.id ? { ...item, status: 'CANCELLED', canCancel: false } : item));
+      setCancelMessage(`${purchase.itemTitle} was cancelled. ${purchase.pointsSpent.toLocaleString()} points were returned to ${purchase.sponsorName}.`);
+    } catch (caught) {
+      setCancelError(caught.message || 'Unable to cancel the purchase.');
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   useEffect(() => {
     const token = sessionStorage.getItem('authToken');
@@ -64,13 +92,16 @@ export default function DriverPurchases() {
         <nav className="dashboard-nav" aria-label="Purchase navigation"><Link to="/driver-dashboard">Dashboard</Link><Link to="/driver-catalog">Catalog</Link><LogoutButton /></nav>
       </header>
       <section className="dashboard-card" aria-labelledby="purchase-history-heading">
-        <header className="dashboard-card-header"><h2 id="purchase-history-heading">Your purchases</h2><p className="dashboard-section-description">These purchases are simulated; no items are shipped.</p></header>
+        <header className="dashboard-card-header"><h2 id="purchase-history-heading">Your purchases</h2><p className="dashboard-section-description">These purchases are simulated; no items are shipped. You can cancel within 24 hours.</p></header>
+        {cancelMessage && <p className="purchase-feedback" role="status">{cancelMessage}</p>}
+        {cancelError && <p className="purchase-feedback purchase-feedback-error" role="alert">{cancelError}</p>}
         {loading ? <p className="dashboard-message" role="status">Loading purchases…</p>
           : error ? <p className="dashboard-message" role="alert">{error}</p>
           : purchases.length === 0 ? <p className="dashboard-message">No purchases yet. <Link to="/driver-catalog">Explore rewards</Link> to get started.</p>
           : <ul className="purchase-list">{purchases.map((purchase) => <li className="purchase-row" key={purchase.id}>
             <div className="purchase-overview"><PurchaseImage purchase={purchase} /><div className="purchase-info"><h3>{purchase.itemTitle}</h3><p>{purchase.sponsorName} · {purchaseDate(purchase.purchasedAt)}</p><span className={`purchase-status ${purchase.status === 'CANCELLED' ? 'purchase-status-cancelled' : ''}`}>{purchase.status === 'COMPLETED' ? 'Completed' : purchase.status === 'CANCELLED' ? 'Cancelled' : purchase.status}</span></div><strong className="purchase-cost">{purchase.pointsSpent.toLocaleString()} pts</strong></div>
             <details className="purchase-receipt"><summary>View receipt</summary><div className="receipt-content"><h4>Purchase receipt</h4><dl><div><dt>Receipt number</dt><dd>#{purchase.id}</dd></div><div><dt>Item</dt><dd>{purchase.itemTitle}</dd></div><div><dt>Sponsor</dt><dd>{purchase.sponsorName}</dd></div><div><dt>Date</dt><dd>{purchaseDate(purchase.purchasedAt)}</dd></div><div><dt>Status</dt><dd>{purchase.status === 'COMPLETED' ? 'Completed' : purchase.status === 'CANCELLED' ? 'Cancelled' : purchase.status}</dd></div><div><dt>Points spent</dt><dd>{purchase.pointsSpent.toLocaleString()} pts</dd></div></dl><p>This is a simulated purchase. No real order was placed or shipped.</p></div></details>
+            {purchase.canCancel && <div className="purchase-cancel"><button type="button" disabled={cancellingId !== null} onClick={() => cancelPurchase(purchase)}>{cancellingId === purchase.id ? 'Cancelling…' : 'Cancel purchase'}</button></div>}
           </li>)}</ul>}
       </section>
     </div>
