@@ -59,7 +59,9 @@ function applicationDateLabel(sponsor) {
 
 function applicationNextStep(sponsor) {
   if (sponsor.applicationStatus === 'PENDING') return 'Waiting for this sponsor to review your request.';
-  if (sponsor.applicationStatus === 'APPROVED') return 'This sponsor approved your application.';
+  if (sponsor.applicationStatus === 'APPROVED') return sponsor.canApply
+    ? 'Your previous application was approved. You can apply again now.'
+    : 'This sponsor approved your application.';
   if (sponsor.canApply) return 'You can apply again now.';
   const reapplyDate = formatApplicationDate(sponsor.canReapplyAt);
   return reapplyDate ? `You can reapply on ${reapplyDate}.` : 'You can reapply 30 days after the decision.';
@@ -390,6 +392,7 @@ function DriverDashboard() {
           <nav className="dashboard-nav" aria-label="Account actions">
             <Link className="driver-catalog-link" to="/messages">Messages</Link>
             <Link className="driver-catalog-link" to="/support">Support</Link>
+            <Link className="driver-catalog-link" to="/driver-purchases">Purchase history</Link>
             <Link className="driver-catalog-link" to="/point-disputes">Point disputes</Link>
             <button type="button" onClick={() => navigate('/editprofile')}>
               Edit profile
@@ -447,6 +450,7 @@ function DriverDashboard() {
               {visibleItems.map((membership) => (
                 <li className="dashboard-sponsor-item driver-membership-item" key={membership.sponsorId}>
                   <h3>{membership.companyName}</h3>
+                  <p className="driver-membership-balance">{Number.isFinite(membership.points) ? `${membership.points.toLocaleString()} points` : 'Balance unavailable'}</p>
                   {membership.isActive ? (
                     <span className="driver-membership-label driver-membership-active">Current sponsor</span>
                   ) : (
@@ -504,7 +508,7 @@ function DriverDashboard() {
                       </span>
                     </div>
                     <p className="driver-application-next-step">{applicationNextStep(sponsor)}</p>
-                    {sponsor.applicationStatus === 'DENIED' && sponsor.canApply && (
+                    {sponsor.applicationStatus !== 'PENDING' && sponsor.canApply && (
                       <button type="button" className="driver-reapply-button"
                         disabled={submittingSponsorId !== null}
                         onClick={() => applyToSponsor(sponsor.sponsorId, 'status')}>
@@ -527,7 +531,7 @@ function DriverDashboard() {
               <li key={`${item.companyName}-${item.removedAt}`}>
                 {item.companyName}: {item.points.toLocaleString()} points. {item.permitted
                   ? `Policy permits use until ${new Date(item.expiresAt).toLocaleString()}.`
-                  : 'Point use is not currently permitted.'}
+                  : 'Point use is not currently permitted.'} {item.permitted && <Link to={`/driver-catalog?sponsorId=${item.sponsorId}`}>Use points</Link>}
               </li>
             ))}</ul>)}</SmartList>
           </section>

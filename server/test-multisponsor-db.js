@@ -10,12 +10,13 @@ const { createDriverApplicationsRouter } = require('./driver-applications');
 const { createSponsorApplicationsRouter } = require('./sponsor-applications');
 const { createDriverSponsorshipsRouter } = require('./driver-sponsorships');
 const { createDriverCatalogRouter } = require('./driver-catalog');
+const { createSponsorUsersRouter } = require('./sponsor-users');
 
 async function main() {
   const connection = await pool.getConnection();
   let began = false;
   try {
-    const tables = ['Users', 'Drivers', 'Sponsors', 'SponsorUsers', 'DriverSponsorships', 'DriverApplications', 'SponsorCatalogItems', 'DriverPoints', 'AuditLog'];
+    const tables = ['Users', 'Drivers', 'Sponsors', 'SponsorUsers', 'DriverSponsorships', 'DriverApplications', 'SponsorCatalogItems', 'DriverPoints', 'DriverPurchases', 'DriverPostRemovalAccess', 'AuditLog'];
     const [engines] = await connection.query(
       'SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (?)', [tables]
     );
@@ -49,6 +50,7 @@ async function main() {
     app.use('/sponsor/applications', createSponsorApplicationsRouter(testPool));
     app.use('/driver/sponsorships', createDriverSponsorshipsRouter(testPool));
     app.use('/driver/catalog', createDriverCatalogRouter(testPool));
+    app.use('/sponsor', createSponsorUsersRouter(testPool, audit));
 
     const nonce = crypto.randomUUID();
     async function user(role) {
@@ -64,9 +66,9 @@ async function main() {
     }
     const [a, b, c] = [await sponsor(), await sponsor(), await sponsor()];
     const driver = await user('Driver');
-    await connection.query('INSERT INTO Drivers (user_id, sponsor_id, total_points) VALUES (?, ?, 30)', [driver, a.id]);
+    await connection.query('INSERT INTO Drivers (user_id, sponsor_id, total_points) VALUES (?, ?, 50)', [driver, a.id]);
     await connection.query('INSERT INTO DriverSponsorships (driver_id, sponsor_id) VALUES (?, ?)', [driver, a.id]);
-    await connection.query('INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, 10, ?), (?, ?, 20, ?)', [driver, a.id, 'Fixture A', driver, b.id, 'Fixture B']);
+    await connection.query('INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, 30, ?), (?, ?, 20, ?)', [driver, a.id, 'Fixture A', driver, b.id, 'Fixture B']);
     for (const [s, title] of [[a, 'Fixture reward A'], [b, 'Fixture reward B']]) {
       await connection.query('INSERT INTO SponsorCatalogItems (sponsor_id, ebay_item_id, title, ebay_price, family_friendly_confirmed) VALUES (?, ?, ?, 10, 1)', [s.id, nonce, title]);
     }
@@ -83,7 +85,11 @@ async function main() {
     assert.equal((await as(request(app).patch(`/sponsor/applications/${denied}`), c.user, 'Sponsor').send({ decision: 'DENIED' })).status, 200);
     const [memberships] = await connection.query('SELECT sponsor_id FROM DriverSponsorships WHERE driver_id = ? ORDER BY sponsor_id', [driver]);
     assert.deepEqual(memberships.map((row) => row.sponsor_id).sort((x, y) => x - y), [a.id, b.id].sort((x, y) => x - y));
-    for (const [s, title, expectedPoints] of [[a, 'Fixture reward A', 10], [b, 'Fixture reward B', 20], [a, 'Fixture reward A', 10]]) {
+    const sponsorDrivers = await as(request(app).get('/sponsor/drivers'), b.user, 'Sponsor');
+    assert.equal(sponsorDrivers.status, 200);
+    assert.equal(sponsorDrivers.body.find((row) => row.id === driver).points, 20);
+    assert.equal((await as(request(app).get(`/sponsor/drivers/${driver}`), c.user, 'Sponsor')).status, 404);
+    for (const [s, title, expectedPoints] of [[a, 'Fixture reward A', 30], [b, 'Fixture reward B', 20], [a, 'Fixture reward A', 30]]) {
       assert.equal((await as(request(app).patch('/driver/sponsorships/active'), driver, 'Driver').send({ sponsorId: s.id })).status, 200);
       const catalog = await as(request(app).get('/driver/catalog'), driver, 'Driver');
       assert.equal(catalog.status, 200);
@@ -92,7 +98,34 @@ async function main() {
       const [points] = await connection.query('SELECT COALESCE(SUM(p.point_change), 0) AS total FROM Drivers d LEFT JOIN DriverPoints p ON p.driver_id = d.user_id AND p.sponsor_id = d.sponsor_id WHERE d.user_id = ?', [driver]);
       assert.equal(Number(points[0].total), expectedPoints);
     }
-    console.log('Database integration passed: application isolation, approval, denial, memberships, switching, catalogs, and sponsor-tagged point totals.');
+    await connection.query('INSERT INTO SponsorCatalogItems (sponsor_id, ebay_item_id, title, ebay_price, family_friendly_confirmed) VALUES (?, ?, ?, 5, 1)', [a.id, `${nonce}-second`, 'Fixture reward second']);
+    const catalog = await as(request(app).get('/driver/catalog'), driver, 'Driver');
+    const checkoutItems = catalog.body.items.map((item) => ({ itemId: item.id, pointCost: item.pointCost }));
+    assert.equal(checkoutItems.length, 2);
+    const checkout = await as(request(app).post('/driver/catalog/checkout'), driver, 'Driver').send({ sponsorId: a.id, items: checkoutItems });
+    assert.equal(checkout.status, 200, JSON.stringify(checkout.body));
+    assert.equal(checkout.body.balance, 15);
+    assert.equal(checkout.body.purchaseIds.length, 2);
+    let history = await as(request(app).get('/driver/catalog/purchases'), driver, 'Driver');
+    assert.equal(history.status, 200);
+    assert.equal(history.body.purchases.length, 2);
+    assert.ok(history.body.purchases.every((item) => item.sponsorId === a.id && item.status === 'COMPLETED' && item.canCancel));
+    const id = history.body.purchases.find((item) => item.pointsSpent === 10).id;
+    const details = { deliveryAddress: '123 Test Road', contactEmail: 'fixture@example.invalid' };
+    assert.equal((await as(request(app).patch(`/driver/catalog/purchases/${id}/details`), driver, 'Driver').send(details)).status, 200);
+    history = await as(request(app).get('/driver/catalog/purchases'), driver, 'Driver');
+    assert.deepEqual({ deliveryAddress: history.body.purchases.find((item) => item.id === id).deliveryAddress, contactEmail: history.body.purchases.find((item) => item.id === id).contactEmail }, details);
+    const otherDriver = await user('Driver');
+    assert.equal((await as(request(app).get('/driver/catalog/purchases'), otherDriver, 'Driver')).body.purchases.length, 0);
+    assert.equal((await as(request(app).patch(`/driver/catalog/purchases/${id}/details`), otherDriver, 'Driver').send(details)).status, 404);
+    assert.equal((await as(request(app).post(`/driver/catalog/purchases/${id}/cancel`), driver, 'Driver')).status, 200);
+    assert.equal((await as(request(app).post(`/driver/catalog/purchases/${id}/cancel`), driver, 'Driver')).status, 409);
+    const [balances] = await connection.query('SELECT sponsor_id, SUM(point_change) AS points FROM DriverPoints WHERE driver_id = ? GROUP BY sponsor_id', [driver]);
+    assert.equal(Number(balances.find((row) => row.sponsor_id === a.id).points), 25);
+    assert.equal(Number(balances.find((row) => row.sponsor_id === b.id).points), 20);
+    history = await as(request(app).get('/driver/catalog/purchases'), driver, 'Driver');
+    assert.equal(history.body.purchases.find((item) => item.id === id).status, 'CANCELLED');
+    console.log('Database integration passed: sponsor balances, cart checkout, purchase history, details, access isolation, cancellation, and refunds.');
   } finally {
     if (began) await connection.rollback();
     connection.release();

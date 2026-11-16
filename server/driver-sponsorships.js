@@ -10,7 +10,9 @@ function createDriverSponsorshipsRouter(pool) {
 
     try {
       const [rows] = await pool.query(
-        `SELECT s.sponsor_id, s.company_name, d.sponsor_id AS active_sponsor_id
+        `SELECT s.sponsor_id, s.company_name, d.sponsor_id AS active_sponsor_id,
+                COALESCE((SELECT SUM(p.point_change) FROM DriverPoints p
+                  WHERE p.driver_id = ds.driver_id AND p.sponsor_id = ds.sponsor_id), 0) AS points
          FROM DriverSponsorships ds
          JOIN Sponsors s ON s.sponsor_id = ds.sponsor_id
          JOIN Drivers d ON d.user_id = ds.driver_id
@@ -23,6 +25,7 @@ function createDriverSponsorshipsRouter(pool) {
         sponsorId: row.sponsor_id,
         companyName: row.company_name,
         isActive: row.sponsor_id === row.active_sponsor_id,
+        points: Number(row.points),
       })));
     } catch (error) {
       console.error('List driver sponsorships error:', error);

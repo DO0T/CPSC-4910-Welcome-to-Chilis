@@ -19,6 +19,11 @@
 }
 
 .driver-catalog-nav-link:hover { background: #f0e7da; }
+.catalog-tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid #e7e4dc; }
+.catalog-tabs button { padding: 10px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #706459; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.catalog-tabs button[aria-selected="true"] { color: #8b291f; border-bottom-color: #a83229; }
+.catalog-tab-count { display: inline-block; min-width: 18px; margin-left: 3px; padding: 2px 5px; border-radius: 10px; background: #f4ede5; text-align: center; font-size: 12px; }
+.driver-catalog [role="tabpanel"][hidden] { display: none; }
 
 .driver-catalog-nav-link:focus-visible,
 .driver-catalog a:focus-visible,
@@ -59,6 +64,9 @@
 .driver-catalog-details p { margin: 0 0 8px; }
 .driver-catalog-details a { color: #245c48; }
 .driver-catalog-actions { grid-column: 2; grid-row: 1; padding: 20px clamp(18px, 3vw, 32px) 20px 0; text-align: right; }
+.driver-catalog-add { min-height: 38px; margin-right: 8px; padding: 8px 12px; border: 1px solid #d8cfc3; background: #fff; color: #8b291f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.driver-catalog-add:disabled { opacity: .55; cursor: not-allowed; }
+.driver-catalog-add:hover:not(:disabled) { background: #f8f3ed; }
 .driver-catalog-actions p { margin: 8px 0 0; color: #706459; font-size: 14px; }
 .driver-catalog-purchase { min-height: 38px; padding: 8px 14px; border: 0; border-radius: 999px; background: #245c48; color: white; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .driver-catalog-purchase:disabled { opacity: .5; cursor: not-allowed; }
@@ -66,6 +74,10 @@
 .catalog-balance { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding: 16px 20px; border: 1px solid #d8cfc3; border-radius: 12px; background: #fff; color: #706459; }
 .catalog-balance strong { color: #245c48; font-size: 24px; white-space: nowrap; }
 .catalog-balance small { font-size: 14px; font-weight: 600; }
+.driver-catalog-search { display: flex; flex-direction: column; gap: 6px; max-width: 420px; margin-top: 20px; }
+.driver-catalog-search label { color: #655e56; font-size: 13px; font-weight: 700; }
+.driver-catalog-search input { box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid #d8cfc3; border-radius: 8px; background: #fff; color: #302b26; font: inherit; }
+.driver-catalog-search input:focus-visible { outline: 2px solid #39713a; outline-offset: 2px; }
 .catalog-checkout { width: min(500px, calc(100% - 32px)); max-height: calc(100% - 32px); box-sizing: border-box; padding: 0; border: 0; border-radius: 18px; color: #302b26; background: #fff; box-shadow: 0 18px 70px #142d3980; }
 .catalog-checkout::backdrop { background: #142d39aa; }
 .checkout-content { padding: clamp(24px, 5vw, 36px); }
@@ -88,6 +100,20 @@
 .checkout-secondary { background: #fff; color: #245c48; }
 .checkout-primary:disabled, .checkout-secondary:disabled, .checkout-close:disabled { opacity: .5; cursor: not-allowed; }
 .catalog-checkout button:focus-visible { outline: 2px solid #706459; outline-offset: 3px; }
+.cart-count { color: #706459; font-size: 15px; }
+.cart-content { padding: 20px 24px 24px; }
+.cart-content ul { list-style: none; padding: 0; margin: 0; }
+.cart-content li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eeeae3; }
+.cart-content li .driver-catalog-image { width: 64px; height: 64px; flex: none; border-radius: 8px; }
+.cart-content li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cart-content li strong { white-space: nowrap; }
+.cart-content li button { padding: 6px; border: 0; background: transparent; color: #8b291f; font: inherit; font-size: 13px; cursor: pointer; }
+.cart-total { display: flex; justify-content: space-between; gap: 16px; margin: 18px 0; }
+.cart-warning { color: #8a3030; font-size: 14px; }
+.checkout-cart-items { margin: 24px 0; }
+.checkout-cart-items div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; }
+.checkout-cart-items span { overflow-wrap: anywhere; }
+.checkout-cart-items strong { white-space: nowrap; }
 
 .driver-catalog-image {
   width: 112px;
@@ -138,6 +164,7 @@
 
   .driver-catalog-item { grid-template-columns: minmax(0, 1fr); }
   .driver-catalog-actions { grid-column: 1; grid-row: 2; padding: 0 18px 18px 120px; text-align: left; }
+  .driver-catalog-add { margin: 0 8px 8px 0; }
   .driver-catalog-details { grid-row: 3; }
 
   .driver-catalog-image {

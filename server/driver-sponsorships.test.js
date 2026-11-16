@@ -16,17 +16,18 @@ function setup({ role = 'Driver', rows = [] } = {}) {
 
 test('lists only the logged-in driver memberships and marks the current sponsor', async () => {
   const { app, pool } = setup({ rows: [
-    { sponsor_id: 7, company_name: 'Acme', active_sponsor_id: 7 },
-    { sponsor_id: 9, company_name: 'Beacon', active_sponsor_id: 7 },
+    { sponsor_id: 7, company_name: 'Acme', active_sponsor_id: 7, points: '50' },
+    { sponsor_id: 9, company_name: 'Beacon', active_sponsor_id: 7, points: '20' },
   ] });
   const response = await request(app).get('/api/driver/sponsorships?driverId=999');
   expect(response.statusCode).toBe(200);
   expect(response.body).toEqual([
-    { sponsorId: 7, companyName: 'Acme', isActive: true },
-    { sponsorId: 9, companyName: 'Beacon', isActive: false },
+    { sponsorId: 7, companyName: 'Acme', isActive: true, points: 50 },
+    { sponsorId: 9, companyName: 'Beacon', isActive: false, points: 20 },
   ]);
   expect(pool.query.mock.calls[0][1]).toEqual([42]);
   expect(pool.query.mock.calls[0][0]).toContain('WHERE ds.driver_id = ?');
+  expect(pool.query.mock.calls[0][0]).toContain('p.driver_id = ds.driver_id AND p.sponsor_id = ds.sponsor_id');
 });
 
 test('returns an empty list when the driver has no memberships', async () => {

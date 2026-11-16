@@ -19,15 +19,30 @@ function CatalogImage({ item }) {
 
 function DriverCatalog() {
   const navigate = useNavigate();
+  const formerSponsorId = new URLSearchParams(window.location.search).get('sponsorId');
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState('');
   const [purchasing, setPurchasing] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState(null);
   const [purchaseError, setPurchaseError] = useState('');
   const [receipt, setReceipt] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [checkoutCart, setCheckoutCart] = useState(false);
+  const [activeTab, setActiveTab] = useState('rewards');
   const dialogRef = useRef(null);
+  const rewardsTabRef = useRef(null);
+  const cartTabRef = useRef(null);
+
+  function handleTabKey(event) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'rewards' : event.key === 'End' ? 'cart' : activeTab === 'rewards' ? 'cart' : 'rewards';
+    setActiveTab(next);
+    (next === 'rewards' ? rewardsTabRef : cartTabRef).current?.focus();
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -42,10 +57,15 @@ function DriverCatalog() {
     setReceipt(null);
   }
 
-  function openCheckout(item) {
+  function openCheckout(item, isCart = false) {
     setPurchaseError('');
     setReceipt(null);
+    setCheckoutCart(isCart);
     setCheckoutItem(item);
+  }
+
+  function addToCart(item) {
+    setCart((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]);
   }
 
   async function purchase(item) {
@@ -53,10 +73,12 @@ function DriverCatalog() {
     setPurchasing(true);
     setPurchaseError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/driver/catalog/purchase`, {
+      const response = await fetch(`${API_BASE_URL}/api/driver/catalog/${checkoutCart ? 'checkout' : 'purchase'}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId: item.id, sponsorId: catalog.sponsorId, pointCost: item.pointCost }),
+        body: JSON.stringify(checkoutCart
+          ? { sponsorId: catalog.sponsorId, items: item.items.map((entry) => ({ itemId: entry.id, pointCost: entry.pointCost })) }
+          : { itemId: item.id, sponsorId: catalog.sponsorId, pointCost: item.pointCost }),
       });
       if (response.status === 401) {
         sessionStorage.removeItem('authToken');
@@ -67,6 +89,7 @@ function DriverCatalog() {
       if (!response.ok) throw new Error(body.message || 'Unable to complete the simulated purchase.');
       setCatalog((current) => ({ ...current, balance: body.balance }));
       setReceipt({ balance: body.balance, cost: item.pointCost });
+      if (checkoutCart) setCart([]);
     } catch (caught) {
       setPurchaseError(caught.message || 'Unable to complete the purchase.');
     } finally {
@@ -90,10 +113,17 @@ function DriverCatalog() {
       return undefined;
     }
 
+    setCart([]);
+    setActiveTab('rewards');
+    setSearch('');
+    setCatalog(null);
+    setLoading(true);
+    setError('');
+
     const controller = new AbortController();
     async function loadCatalog() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/driver/catalog`, {
+        const response = await fetch(`${API_BASE_URL}/api/driver/catalog${formerSponsorId ? `?sponsorId=${encodeURIComponent(formerSponsorId)}` : ''}`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
@@ -113,7 +143,10 @@ function DriverCatalog() {
     }
     loadCatalog();
     return () => controller.abort();
-  }, [navigate]);
+  }, [navigate, formerSponsorId]);
+
+  const searchTerm = search.trim().toLocaleLowerCase();
+  const matchingItems = catalog?.items.filter((item) => item.title.toLocaleLowerCase().includes(searchTerm)) || [];
 
   return (
     <main className="dashboard-page driver-catalog">
@@ -125,15 +158,20 @@ function DriverCatalog() {
             <p className="dashboard-section-description">Browse rewards available through your sponsor.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Catalog navigation">
+            <Link className="driver-catalog-nav-link" to="/driver-purchases">Purchase history</Link>
             <Link className="driver-catalog-nav-link" to="/driver-dashboard">Dashboard</Link>
             <LogoutButton />
           </nav>
         </header>
 
-        <section className="dashboard-card" aria-labelledby="driver-catalog-heading">
+        {catalog && <div className="catalog-tabs" role="tablist" aria-label="Catalog views" onKeyDown={handleTabKey}>
+          <button ref={rewardsTabRef} type="button" role="tab" id="rewards-tab" aria-selected={activeTab === 'rewards'} aria-controls="rewards-panel" tabIndex={activeTab === 'rewards' ? 0 : -1} onClick={() => setActiveTab('rewards')}>Rewards</button>
+          <button ref={cartTabRef} type="button" role="tab" id="cart-tab" aria-selected={activeTab === 'cart'} aria-controls="cart-panel" tabIndex={activeTab === 'cart' ? 0 : -1} onClick={() => setActiveTab('cart')}>Cart <span className="catalog-tab-count">{cart.length}</span></button>
+        </div>}
+        <section className="dashboard-card" id="rewards-panel" role="tabpanel" aria-labelledby={catalog ? 'rewards-tab' : 'driver-catalog-heading'} hidden={activeTab !== 'rewards'}>
           <header className="dashboard-card-header">
             <h2 id="driver-catalog-heading">Available rewards</h2>
-            <p className="dashboard-section-description">Items selected by your current sponsor.</p>
+            <p className="dashboard-section-description">Items selected by this sponsor.</p>
             {catalog && (
               <p className="dashboard-section-description">
                 {Number.isFinite(catalog.pointValue) && catalog.pointValue > 0
@@ -142,6 +180,7 @@ function DriverCatalog() {
               </p>
             )}
             {catalog && <div className="catalog-balance"><span>Your {catalog.companyName} balance</span><strong>{catalog.balance.toLocaleString()} <small>points</small></strong></div>}
+            {catalog?.items.length > 0 && <div className="driver-catalog-search"><label htmlFor="reward-search">Search rewards</label><input id="reward-search" type="search" placeholder="Search by product name" value={search} onChange={(event) => setSearch(event.target.value)} /></div>}
           </header>
           {loading ? (
             <p className="dashboard-message" role="status">Loading rewards…</p>
@@ -149,8 +188,10 @@ function DriverCatalog() {
             <p className="dashboard-message" role="alert">{error} <Link to="/driver-dashboard">Back to dashboard</Link></p>
           ) : catalog.items.length === 0 ? (
             <p className="dashboard-message">This sponsor has no available rewards yet. Check back later or choose another sponsor on your dashboard.</p>
+          ) : matchingItems.length === 0 ? (
+            <p className="dashboard-message" role="status">No rewards match your search. Try a different keyword.</p>
           ) : (
-            <SmartList items={catalog.items} label="rewards" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost}]}>{visibleItems => (<ul className="driver-catalog-list">
+            <SmartList items={matchingItems} label="rewards" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost}]}>{visibleItems => (<ul className="driver-catalog-list">
               {visibleItems.map((item) => (
                 <li className="driver-catalog-item" key={item.id}>
                   <button type="button" className="driver-catalog-item-button"
@@ -172,6 +213,9 @@ function DriverCatalog() {
                     {listingUrl(item.itemUrl) && <a href={listingUrl(item.itemUrl)} target="_blank" rel="noopener noreferrer">View original listing</a>}
                   </div>
                   <div className="driver-catalog-actions">
+                    <button className="driver-catalog-add" type="button" disabled={item.pointCost == null || cart.some((entry) => entry.id === item.id)} onClick={() => addToCart(item)} aria-label={`Add ${item.title} to cart`}>
+                      {cart.some((entry) => entry.id === item.id) ? 'In cart' : 'Add to cart'}
+                    </button>
                     <button className="driver-catalog-purchase" type="button" disabled={item.pointCost == null || catalog.balance < item.pointCost} onClick={() => openCheckout(item)} aria-label={`Buy ${item.title} with points`}>
                       Buy with points
                     </button>
@@ -182,7 +226,17 @@ function DriverCatalog() {
             </ul>)}</SmartList>
           )}
         </section>
-        {!loading && !error && catalog?.items.length > 0 && (
+        {catalog && <section className="dashboard-card driver-cart" id="cart-panel" role="tabpanel" aria-labelledby="cart-tab" hidden={activeTab !== 'cart'}>
+          <header className="dashboard-card-header"><h2 id="driver-cart-heading">Your cart <span className="cart-count">({cart.length})</span></h2><p className="dashboard-section-description">Rewards from {catalog.companyName}. Your cart stays on this page while you shop.</p></header>
+          {cart.length === 0 ? <p className="dashboard-message">Your cart is empty. Add a reward to get started.</p> : <div className="cart-content">
+            <ul>{cart.map((item) => <li key={item.id}><CatalogImage item={item} /><span>{item.title}</span><strong>{item.pointCost.toLocaleString()} pts</strong><button type="button" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.title} from cart`}>Remove</button></li>)}</ul>
+            <div className="cart-total"><span>Total</span><strong>{cart.reduce((sum, item) => sum + item.pointCost, 0).toLocaleString()} pts</strong></div>
+            {cart.reduce((sum, item) => sum + item.pointCost, 0) > catalog.balance && <p className="cart-warning">Not enough points for all items with this sponsor.</p>}
+            <button className="driver-catalog-purchase" type="button" disabled={cart.reduce((sum, item) => sum + item.pointCost, 0) > catalog.balance || cart.length > 50} onClick={() => openCheckout({ title: 'Your cart', pointCost: cart.reduce((sum, item) => sum + item.pointCost, 0), items: [...cart] }, true)}>Review cart checkout</button>
+            {cart.length > 50 && <p className="cart-warning">A checkout can include up to 50 items.</p>}
+          </div>}
+        </section>}
+        {activeTab === 'rewards' && !loading && !error && catalog?.items.length > 0 && (
           <p className="driver-catalog-note">Listings come from your sponsor’s saved catalog. Availability may change.</p>
         )}
         <dialog className="catalog-checkout" ref={dialogRef} aria-labelledby="checkout-title" onCancel={(event) => { event.preventDefault(); closeCheckout(); }} onClose={() => { if (!purchasing) { setCheckoutItem(null); setPurchaseError(''); setReceipt(null); } }}>
@@ -192,16 +246,17 @@ function DriverCatalog() {
                 <div><p className="checkout-eyebrow">{receipt ? 'Purchase complete' : 'Rewards checkout'}</p><h2 id="checkout-title">{receipt ? 'Enjoy your reward' : 'Review your reward'}</h2></div>
                 <button className="checkout-close" type="button" onClick={closeCheckout} disabled={purchasing} aria-label="Close checkout">×</button>
               </div>
-              <div className="checkout-item">
+              {checkoutCart ? <div className="checkout-cart-items">{checkoutItem.items.map((entry) => <div key={entry.id}><span>{entry.title}</span><strong>{entry.pointCost.toLocaleString()} pts</strong></div>)}</div> : <div className="checkout-item">
                 <CatalogImage item={checkoutItem} />
                 <div><p className="checkout-sponsor">{catalog.companyName}</p><h3>{checkoutItem.title}</h3><p>Quantity: 1</p></div>
-              </div>
+              </div>}
               <div className="checkout-summary">
                 {!receipt && <div><span>Available points</span><strong>{catalog.balance.toLocaleString()}</strong></div>}
                 <div><span>{receipt ? 'Points spent' : 'Reward cost'}</span><strong>−{checkoutItem.pointCost.toLocaleString()} pts</strong></div>
                 <div className="checkout-total"><span>{receipt ? 'Remaining balance' : 'Balance after purchase'}</span><strong>{(receipt ? receipt.balance : catalog.balance - checkoutItem.pointCost).toLocaleString()} pts</strong></div>
               </div>
               <p className="checkout-disclosure">This is a simulated purchase. Points are deducted, but no real order is placed or shipped.</p>
+              {receipt && <p className="checkout-disclosure"><Link to="/driver-purchases">View purchase history and receipts</Link></p>}
               {purchaseError && <p className="checkout-error" role="alert">{purchaseError}</p>}
               {receipt ? <button className="checkout-primary" type="button" onClick={closeCheckout}>Continue shopping</button> : <div className="checkout-actions"><button className="checkout-secondary" type="button" onClick={closeCheckout} disabled={purchasing}>Keep shopping</button><button className="checkout-primary" type="button" onClick={() => purchase(checkoutItem)} disabled={purchasing}>{purchasing ? 'Completing purchase…' : 'Complete purchase'}</button></div>}
             </div>

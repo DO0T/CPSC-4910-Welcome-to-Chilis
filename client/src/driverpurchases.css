@@ -1,0 +1,48 @@
+.driver-purchases { text-align: left; }
+.purchase-list { list-style: none; margin: 0; padding: 0; }
+.purchase-row { padding: 22px 24px; border-top: 1px solid #eeeae3; }
+.purchase-row:first-child { border-top: 0; }
+.purchase-overview { display: flex; align-items: center; gap: 18px; }
+.purchase-image { width: 76px; height: 76px; flex: none; border-radius: 8px; object-fit: contain; background: #f8f5ee; }
+.purchase-image-placeholder { display: grid; place-items: center; color: #706459; font-size: 13px; }
+.purchase-info { flex: 1; min-width: 0; }
+.purchase-info h3 { margin: 0 0 5px; font-size: 17px; overflow-wrap: anywhere; }
+.purchase-info p { margin: 0 0 8px; color: #706459; font-size: 14px; }
+.purchase-status { display: inline-block; padding: 3px 9px; border-radius: 5px; background: #e8f2e7; color: #315d32; font-size: 12px; font-weight: 700; }
+.purchase-status-cancelled { background: #f3ece8; color: #706459; }
+.purchase-cost { white-space: nowrap; font-size: 16px; }
+.purchase-receipt { margin: 14px 0 0 94px; }
+.purchase-receipt summary { color: #8b291f; font-size: 14px; font-weight: 700; cursor: pointer; }
+.purchase-receipt summary:focus-visible { outline: 2px solid #39713a; outline-offset: 3px; }
+.purchase-edit { margin: 14px 0 0 94px; }
+.purchase-edit summary { color: #8b291f; font-size: 14px; font-weight: 700; cursor: pointer; }
+.purchase-edit summary:focus-visible, .purchase-edit-form :is(input, textarea, button):focus-visible { outline: 2px solid #39713a; outline-offset: 3px; }
+.purchase-edit-form { display: grid; gap: 8px; max-width: 540px; margin-top: 14px; padding: 18px; border: 1px solid #e7e4dc; border-radius: 8px; background: #faf8f5; }
+.purchase-edit-form p { margin: 0 0 6px; color: #706459; font-size: 13px; line-height: 1.5; }
+.purchase-edit-form label { color: #655e56; font-size: 13px; font-weight: 700; }
+.purchase-edit-form :is(input, textarea) { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #d8cfc3; border-radius: 8px; background: #fff; color: #302b26; font: inherit; }
+.purchase-edit-form button { justify-self: start; margin-top: 6px; padding: 9px 14px; border: 0; background: #a83229; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.purchase-edit-form button:disabled { opacity: .5; cursor: not-allowed; }
+.purchase-cancel { margin: 14px 0 0 94px; }
+.purchase-cancel button { padding: 8px 12px; border: 1px solid #d8cfc3; background: #fff; color: #8b291f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.purchase-cancel button:hover:not(:disabled) { background: #f8f3ed; }
+.purchase-cancel button:disabled { opacity: .5; cursor: not-allowed; }
+.purchase-cancel button:focus-visible { outline: 2px solid #39713a; outline-offset: 3px; }
+.purchase-feedback { margin: 0; padding: 14px 24px; color: #315d32; background: #e8f2e7; }
+.purchase-feedback-error { color: #8a3030; background: #fff0ee; }
+.receipt-content { max-width: 540px; margin-top: 14px; padding: 18px; border: 1px solid #e7e4dc; border-radius: 8px; background: #faf8f5; }
+.receipt-content h4 { margin: 0 0 12px; font-size: 16px; }
+.receipt-content dl { margin: 0; }
+.receipt-content dl div { display: flex; justify-content: space-between; gap: 18px; padding: 7px 0; border-bottom: 1px solid #eeeae3; }
+.receipt-content dt { color: #706459; }
+.receipt-content dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.receipt-content p { margin: 14px 0 0; color: #706459; font-size: 13px; line-height: 1.5; }
+@media (max-width: 600px) {
+  .purchase-row { padding: 18px; }
+  .purchase-overview { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+  .purchase-image { width: 64px; height: 64px; }
+  .purchase-cost { margin-left: 76px; }
+  .purchase-receipt { margin-left: 0; }
+  .purchase-edit { margin-left: 0; }
+  .purchase-cancel { margin-left: 0; }
+}

@@ -679,7 +679,7 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
     let effectiveSponsorId =
       sponsor_id != null ? Number(sponsor_id) : driverRows[0].sponsor_id;
 
-    if (!req.isAdmin) {
+    if (req.userRole === 'Sponsor') {
       // Sponsors always award/deduct points on behalf of their OWN organization,
       // even if the driver's currently active sponsor is a different one.
       const sponsorOrg = await getSponsorOrgForUser(connection, req.userId);
@@ -735,12 +735,12 @@ app.post("/api/driver-points", requireLogin, async (req, res) => {
 
     await connection.commit();
 
-    const [rows] = req.isAdmin
-      ? await connection.query("SELECT total_points FROM Drivers WHERE user_id = ?;", [driver_id])
-      : await connection.query(
+    const [rows] = req.userRole === 'Sponsor'
+      ? await connection.query(
         "SELECT COALESCE(SUM(point_change), 0) AS total_points FROM DriverPoints WHERE driver_id = ? AND sponsor_id = ?;",
         [driver_id, effectiveSponsorId]
-      );
+      )
+      : await connection.query("SELECT total_points FROM Drivers WHERE user_id = ?;", [driver_id]);
 
     res.status(200).json({
       message: "Driver points updated successfully",
@@ -1260,6 +1260,14 @@ app.put(
           ? null
           : Number(sponsorId);
 
+      if (nextRole === "Driver" && existingUser.role === "Driver") {
+        const [currentDrivers] = await connection.query("SELECT sponsor_id FROM Drivers WHERE user_id = ? FOR UPDATE", [targetUserId]);
+        if (currentDrivers.length && Number(currentDrivers[0].sponsor_id || 0) !== Number(parsedSponsorId || 0)) {
+          await connection.rollback();
+          return res.status(400).json({ message: "Use Assign or Drop Drivers from Sponsors to change a driver affiliation." });
+        }
+      }
+
       if (nextRole === "Driver") {
         await connection.query("DELETE FROM SponsorUsers WHERE user_id = ?;", [
           targetUserId,
@@ -1419,7 +1427,7 @@ app.post(
           FROM Drivers d
           JOIN Users u ON u.user_id = d.user_id
           LEFT JOIN Sponsors s ON s.sponsor_id = d.sponsor_id
-          WHERE d.user_id = ? LIMIT 1;
+          WHERE d.user_id = ? LIMIT 1 FOR UPDATE;
         `,
         [driverId]
       );
