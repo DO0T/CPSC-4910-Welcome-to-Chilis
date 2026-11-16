@@ -65,6 +65,27 @@ function createDriverCatalogRouter(pool) {
     }
   });
 
+  router.get('/purchases', async (req, res) => {
+    if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
+    try {
+      const [rows] = await pool.query(
+        `SELECT purchase_id, sponsor_id, sponsor_name, catalog_item_id, item_title,
+                item_image_url, points_spent, status, purchased_at
+         FROM DriverPurchases WHERE driver_id = ? ORDER BY purchased_at DESC, purchase_id DESC`,
+        [req.userId]
+      );
+      return res.json({ purchases: rows.map((row) => ({
+        id: row.purchase_id, sponsorId: row.sponsor_id, sponsorName: row.sponsor_name,
+        itemId: row.catalog_item_id, itemTitle: row.item_title, imageUrl: row.item_image_url || '',
+        pointsSpent: Number(row.points_spent), status: row.status, purchasedAt: row.purchased_at,
+      })) });
+    } catch (error) {
+      console.error('Load purchases error:', error);
+      if (error.code === 'ER_NO_SUCH_TABLE') return res.status(503).json({ message: 'Purchase records are not set up yet.' });
+      return res.status(500).json({ message: 'Unable to load purchases.' });
+    }
+  });
+
   router.post('/purchase', async (req, res) => {
     if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
     const { itemId, sponsorId, pointCost: expectedCost } = req.body || {};
@@ -85,7 +106,7 @@ function createDriverCatalogRouter(pool) {
         return res.status(409).json({ message: 'Your active sponsor changed. Reload the catalog before purchasing.' });
       }
       const [items] = await connection.query(
-        `SELECT i.title, i.ebay_price, i.price_override, s.point_value
+        `SELECT i.title, i.image_url, i.ebay_price, i.price_override, s.point_value, s.company_name
          FROM SponsorCatalogItems i JOIN Sponsors s ON s.sponsor_id = i.sponsor_id
          JOIN DriverSponsorships ds ON ds.sponsor_id = i.sponsor_id AND ds.driver_id = ?
          WHERE i.id = ? AND i.sponsor_id = ? AND i.active = 1 AND i.is_available = 1
@@ -112,15 +133,22 @@ function createDriverCatalogRouter(pool) {
         return res.status(409).json({ message: 'You do not have enough points with this sponsor.' });
       }
       await connection.query('UPDATE Drivers SET total_points = COALESCE(total_points, 0) - ? WHERE user_id = ?', [cost, req.userId]);
-      await connection.query(
+      const [pointTransaction] = await connection.query(
         'INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, ?, ?)',
         [req.userId, sponsorId, -cost, `Simulated purchase: ${item.title}`.slice(0, 255)]
       );
+      const [purchase] = await connection.query(
+        `INSERT INTO DriverPurchases
+         (driver_id, sponsor_id, catalog_item_id, point_transaction_id, sponsor_name, item_title, item_image_url, points_spent)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.userId, sponsorId, itemId, pointTransaction.insertId, item.company_name, item.title, item.image_url || null, cost]
+      );
       await connection.commit();
-      return res.json({ message: 'Simulated purchase complete. No real order was placed.', balance: balance - cost });
+      return res.json({ message: 'Simulated purchase complete. No real order was placed.', balance: balance - cost, purchaseId: purchase.insertId });
     } catch (error) {
       if (connection) await connection.rollback();
       console.error('Simulated purchase error:', error);
+      if (error.code === 'ER_NO_SUCH_TABLE') return res.status(503).json({ message: 'Purchase records are not set up yet. Please contact an administrator.' });
       return res.status(500).json({ message: 'Unable to complete the simulated purchase.' });
     } finally {
       if (connection) connection.release();

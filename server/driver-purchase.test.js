@@ -2,18 +2,23 @@ const express = require('express');
 const request = require('supertest');
 const { createDriverCatalogRouter } = require('./driver-catalog');
 
-function setup({ sponsor = 7, item = true, balance = 100, role = 'Driver' } = {}) {
+function setup({ sponsor = 7, item = true, balance = 100, role = 'Driver', purchaseError = null, purchases = [] } = {}) {
   const connection = {
     beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn(),
     query: jest.fn(async (sql) => {
       if (sql.startsWith('SELECT sponsor_id FROM Drivers')) return [[{ sponsor_id: sponsor }]];
       if (sql.startsWith('SELECT 1 FROM DriverPostRemovalAccess')) return [[]];
-      if (sql.includes('FROM SponsorCatalogItems')) return [item ? [{ title: 'Reward', ebay_price: '10.00', price_override: null, point_value: '0.25' }] : []];
+      if (sql.includes('FROM SponsorCatalogItems')) return [item ? [{ title: 'Reward', image_url: 'https://example.com/reward.jpg', company_name: 'Acme', ebay_price: '10.00', price_override: null, point_value: '0.25' }] : []];
       if (sql.startsWith('SELECT COALESCE')) return [[{ balance }]];
+      if (sql.startsWith('INSERT INTO DriverPoints')) return [{ insertId: 81 }];
+      if (sql.includes('INSERT INTO DriverPurchases')) {
+        if (purchaseError) throw purchaseError;
+        return [{ insertId: 23 }];
+      }
       return [{}];
     }),
   };
-  const pool = { getConnection: jest.fn().mockResolvedValue(connection) };
+  const pool = { getConnection: jest.fn().mockResolvedValue(connection), query: jest.fn().mockResolvedValue([purchases]) };
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => { req.userId = 42; req.userRole = role; next(); });
@@ -28,9 +33,36 @@ test('deducts the server-calculated cost from the active sponsor and records it'
   const response = await purchase(app);
   expect(response.statusCode).toBe(200);
   expect(response.body.balance).toBe(60);
+  expect(response.body.purchaseId).toBe(23);
   expect(connection.query.mock.calls.find(([sql]) => sql.startsWith('SELECT COALESCE'))[1]).toEqual([42, 7]);
   expect(connection.query.mock.calls.find(([sql]) => sql.startsWith('INSERT INTO DriverPoints'))[1]).toEqual([42, 7, -40, 'Simulated purchase: Reward']);
+  expect(connection.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO DriverPurchases'))[1]).toEqual([42, 7, 3, 81, 'Acme', 'Reward', 'https://example.com/reward.jpg', 40]);
   expect(connection.commit).toHaveBeenCalledTimes(1);
+});
+
+test('rolls back the deduction when the purchase record cannot be saved', async () => {
+  const { app, connection } = setup({ purchaseError: Object.assign(new Error('missing table'), { code: 'ER_NO_SUCH_TABLE' }) });
+  const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    expect((await purchase(app)).statusCode).toBe(503);
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+  } finally { spy.mockRestore(); }
+});
+
+test('returns only the logged-in driver purchase records', async () => {
+  const { app, pool } = setup({ purchases: [{ purchase_id: 23, sponsor_id: 7, sponsor_name: 'Acme', catalog_item_id: 3, item_title: 'Reward', item_image_url: null, points_spent: 40, status: 'COMPLETED', purchased_at: '2026-11-15T12:00:00Z' }] });
+  const response = await request(app).get('/catalog/purchases?driverId=999');
+  expect(response.statusCode).toBe(200);
+  expect(pool.query.mock.calls[0][0]).toContain('WHERE driver_id = ?');
+  expect(pool.query.mock.calls[0][1]).toEqual([42]);
+  expect(response.body.purchases[0]).toMatchObject({ id: 23, sponsorName: 'Acme', itemTitle: 'Reward', pointsSpent: 40, status: 'COMPLETED' });
+});
+
+test('prevents non-drivers from reading purchase records', async () => {
+  const { app, pool } = setup({ role: 'Sponsor' });
+  expect((await request(app).get('/catalog/purchases')).statusCode).toBe(403);
+  expect(pool.query).not.toHaveBeenCalled();
 });
 
 test.each([
