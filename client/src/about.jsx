@@ -1,3 +1,5 @@
+import BrandMark from './BrandMark.jsx';
+import SmartList from './SmartList.jsx';
 import { useEffect, useState } from 'react';
 import './about.css';
 
@@ -67,9 +69,8 @@ function About() {
     <main className="about-page">
       <div className="about-content">
         <p className="about-eyebrow">About the project</p>
-        <h1 className="about-title">Welcome to Chili's</h1>
-        <p className="about-intro">
-        </p>
+        <h1 className="about-title"><span className="brand-inline"><BrandMark /> Welcome to Chili's</span></h1>
+        <p className="about-intro">Explore the team and release information behind the Good Trucking program.</p>
 
         {loading ? (
           <div className="about-message" role="status">Loading project information...</div>
@@ -78,8 +79,8 @@ function About() {
         ) : sprints.length === 0 ? (
           <div className="about-message">No sprint information has been added yet.</div>
         ) : (
-          <div className="about-sprint-list">
-            {sprints.map((sprint, index) => {
+          <SmartList items={sprints} label="releases" options={[{key:'version',label:'Version',value:x=>x.version_number},{key:'date',label:'Release date',type:'date',value:x=>x.release_date},{key:'team',label:'Team',value:x=>x.team_number}]}>{visibleItems => (<div className="about-sprint-list">
+            {visibleItems.map((sprint, index) => {
               const sprintName = sprint.version_number || `Sprint ${index + 1}`;
               return (
                 <section
@@ -111,7 +112,7 @@ function About() {
                 </section>
               );
             })}
-          </div>
+          </div>)}</SmartList>
         )}
       </div>
     </main>

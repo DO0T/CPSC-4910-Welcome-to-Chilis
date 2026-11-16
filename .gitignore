@@ -9,3 +9,5 @@ coverage/
 
 *.log
 .DS_Store
+
+/SUPPORT_SETUP.md

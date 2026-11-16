@@ -40,7 +40,6 @@ function createDriverApplicationsRouter(pool, createAuditLog) {
         if (isCurrent) availability = 'sponsored';
         else if (isMember) availability = 'approved';
         else if (sponsor.status === 'PENDING') availability = 'pending';
-        else if (sponsor.status === 'APPROVED') availability = 'approved';
         else if (sponsor.status === 'DENIED' && !Number(sponsor.cooldown_complete)) availability = 'cooldown';
 
         return {
@@ -120,10 +119,6 @@ function createDriverApplicationsRouter(pool, createAuditLog) {
       if (latest?.status === 'PENDING') {
         await connection.rollback();
         return res.status(409).json({ message: 'You already have a pending application for this sponsor' });
-      }
-      if (latest?.status === 'APPROVED') {
-        await connection.rollback();
-        return res.status(409).json({ message: 'You have already been approved by this sponsor' });
       }
       if (latest?.status === 'DENIED' && (!latest.decided_at || !Number(latest.cooldown_complete))) {
         await connection.rollback();

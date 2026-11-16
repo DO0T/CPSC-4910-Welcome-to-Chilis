@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
 import Login from './Login.jsx';
 import Home from './Home.jsx';
 import SignUp from './signup.jsx';
@@ -41,6 +41,12 @@ function App() {
       <Route path="/point-disputes" element={<PointDisputes />} />
     </Routes>
     <AlertSystem />
+    <footer className="site-footer">
+      <div className="site-footer-inner">
+        <span>© 2026 Welcome to Chili&apos;s. All rights reserved.</span>
+        <nav aria-label="Footer navigation"><span>Terms &amp; Conditions</span><Link to="/about">About</Link></nav>
+      </div>
+    </footer>
     </>
   );
 }

@@ -2,8 +2,8 @@
   min-height: 100vh;
   box-sizing: border-box;
   padding: clamp(32px, 7vw, 88px) 20px;
-  color: #29485f;
-  background: #f2f7f5;
+  color: #302b26;
+  background: #f8f5ee;
   font-family: inherit;
 }
 
@@ -23,7 +23,7 @@
 
 .dashboard-eyebrow {
   margin: 0 0 10px;
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: .1em;
@@ -32,7 +32,7 @@
 
 .dashboard-greeting {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: clamp(28px, 4vw, 40px);
   line-height: 1.15;
 }
@@ -44,10 +44,10 @@
 }
 
 .dashboard-nav button {
-  border: 1px solid #e8efec;
+  border: 1px solid #eee6dc;
   border-radius: 999px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font-size: 14px;
   font-weight: 600;
   padding: 10px 18px;
@@ -56,12 +56,12 @@
 }
 
 .dashboard-nav button:hover {
-  background: #e8f1ed;
-  border-color: #55768d;
+  background: #f0e7da;
+  border-color: #706459;
 }
 
 .dashboard-nav button:focus-visible {
-  outline: 2px solid #55768d;
+  outline: 2px solid #706459;
   outline-offset: 2px;
 }
 
@@ -74,7 +74,7 @@
 
 .dashboard-card-header {
   padding: clamp(24px, 5vw, 40px);
-  background: #e8f1ed;
+  background: #f0e7da;
 }
 
 .dashboard-alerts-header {
@@ -83,7 +83,7 @@
 
 .dashboard-points-value {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: clamp(40px, 7vw, 64px);
   font-weight: 600;
   line-height: 1;
@@ -92,25 +92,25 @@
 .dashboard-points-unit {
   font-size: 0.4em;
   font-weight: 600;
-  color: #55768d;
+  color: #706459;
   vertical-align: middle;
 }
 
 .dashboard-points-delta {
   margin: 10px 0 0;
-  color: #55768d;
+  color: #706459;
   font-size: 15px;
 }
 
 .dashboard-message {
   margin: 0;
   padding: 24px clamp(18px, 3vw, 32px);
-  color: #55768d;
+  color: #706459;
 }
 
 .dashboard-section-description {
   margin: 10px 0 0;
-  color: #55768d;
+  color: #706459;
   line-height: 1.5;
 }
 
@@ -136,17 +136,17 @@
 
 .driver-applications-header h2 {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: clamp(24px, 4vw, 32px);
 }
 
 .driver-check-status,
 .driver-reapply-button {
-  border: 1px solid #55768d;
+  border: 1px solid #706459;
   border-radius: 999px;
   padding: 10px 18px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -155,12 +155,12 @@
 
 .driver-check-status:hover:not(:disabled),
 .driver-reapply-button:hover:not(:disabled) {
-  background: #f2f7f5;
+  background: #f8f5ee;
 }
 
 .driver-check-status:focus-visible,
 .driver-reapply-button:focus-visible {
-  outline: 2px solid #29485f;
+  outline: 2px solid #302b26;
   outline-offset: 2px;
 }
 
@@ -173,7 +173,7 @@
 .driver-application-summary-count {
   margin: 0;
   padding: 16px clamp(18px, 3vw, 32px);
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
 }
 
@@ -185,7 +185,7 @@
 
 .driver-application-status-item {
   padding: 20px clamp(18px, 3vw, 32px);
-  border-top: 1px solid #e8efec;
+  border-top: 1px solid #eee6dc;
 }
 
 .driver-application-status-top {
@@ -197,13 +197,13 @@
 
 .driver-application-status-top h3 {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: 17px;
 }
 
 .driver-application-status-top p {
   margin: 5px 0 0;
-  color: #55768d;
+  color: #706459;
   font-size: 13px;
 }
 
@@ -232,7 +232,7 @@
 
 .driver-application-next-step {
   margin: 12px 0 0;
-  color: #29485f;
+  color: #302b26;
   line-height: 1.45;
 }
 
@@ -255,7 +255,7 @@
 }
 
 .dashboard-sponsor-control label {
-  color: #29485f;
+  color: #302b26;
   font-size: 14px;
   font-weight: 600;
 }
@@ -264,24 +264,24 @@
 .dashboard-sponsor-control select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #c9dcd5;
+  border: 1px solid #d8cfc3;
   border-radius: 999px;
   padding: 11px 16px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
 }
 
 .dashboard-sponsor-control input:focus-visible,
 .dashboard-sponsor-control select:focus-visible {
-  outline: 2px solid #55768d;
+  outline: 2px solid #706459;
   outline-offset: 2px;
 }
 
 .dashboard-sponsor-count {
   margin: 0;
   padding: 0 clamp(18px, 3vw, 32px) 16px;
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
 }
 
@@ -297,18 +297,18 @@
   justify-content: space-between;
   gap: 20px;
   padding: 20px clamp(18px, 3vw, 32px);
-  border-top: 1px solid #e8efec;
+  border-top: 1px solid #eee6dc;
 }
 
 .dashboard-sponsor-item h3 {
   margin: 0 0 6px;
-  color: #29485f;
+  color: #302b26;
   font-size: 17px;
 }
 
 .dashboard-sponsor-status {
   margin: 0;
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
 }
 
@@ -317,7 +317,7 @@
   border: 0;
   border-radius: 999px;
   padding: 10px 20px;
-  background: #29485f;
+  background: #a83229;
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -325,11 +325,11 @@
 }
 
 .dashboard-sponsor-item button:hover:not(:disabled) {
-  background: #3c667f;
+  background: #81271f;
 }
 
 .dashboard-sponsor-item button:focus-visible {
-  outline: 2px solid #29485f;
+  outline: 2px solid #302b26;
   outline-offset: 3px;
 }
 
@@ -342,8 +342,8 @@
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 7px 13px;
-  background: #e8f1ed;
-  color: #29485f;
+  background: #f0e7da;
+  color: #302b26;
   font-size: 13px;
   font-weight: 700;
 }
@@ -360,18 +360,18 @@
 .driver-catalog-link {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #d4e3dd;
+  border: 1px solid #ded3c7;
   border-radius: 999px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
 }
 
-.driver-catalog-link:hover { background: #e8f1ed; }
-.driver-catalog-link:focus-visible { outline: 2px solid #55768d; outline-offset: 2px; }
+.driver-catalog-link:hover { background: #f0e7da; }
+.driver-catalog-link:focus-visible { outline: 2px solid #706459; outline-offset: 2px; }
 
 .driver-memberships-header {
   display: flex;
@@ -385,27 +385,27 @@
 
 .dashboard-sponsor-more {
   padding: 20px clamp(18px, 3vw, 32px);
-  border-top: 1px solid #e8efec;
+  border-top: 1px solid #eee6dc;
   text-align: center;
 }
 
 .dashboard-sponsor-more button {
-  border: 1px solid #c9dcd5;
+  border: 1px solid #d8cfc3;
   border-radius: 999px;
   padding: 10px 24px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .dashboard-sponsor-more button:hover {
-  background: #e8f1ed;
+  background: #f0e7da;
 }
 
 .dashboard-sponsor-more button:focus-visible {
-  outline: 2px solid #55768d;
+  outline: 2px solid #706459;
   outline-offset: 2px;
 }
 
@@ -413,17 +413,17 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
-  border-top: 1px solid #e8efec;
+  border-top: 1px solid #eee6dc;
 }
 
 .dashboard-detail {
   min-width: 0;
   padding: 20px clamp(18px, 3vw, 32px);
-  border-bottom: 1px solid #e8efec;
+  border-bottom: 1px solid #eee6dc;
 }
 
 .dashboard-detail:nth-child(odd) {
-  border-right: 1px solid #e8efec;
+  border-right: 1px solid #eee6dc;
 }
 
 .dashboard-detail dt {
@@ -437,13 +437,13 @@
 
 .dashboard-detail dd {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .dashboard-detail-points {
-  color: #55768d;
+  color: #706459;
   font-weight: 600;
 }
 
@@ -451,7 +451,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid #e8efec;
+  border-top: 1px solid #eee6dc;
 }
 
 .dashboard-alert-item {
@@ -459,7 +459,7 @@
   gap: 16px;
   align-items: baseline;
   padding: 18px clamp(18px, 3vw, 32px);
-  border-bottom: 1px solid #e8efec;
+  border-bottom: 1px solid #eee6dc;
   border-left: 4px solid #d22c2c;
 }
 
@@ -469,7 +469,7 @@
 
 .dashboard-alert-date {
   flex: 0 0 auto;
-  color: #55768d;
+  color: #706459;
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
@@ -477,7 +477,7 @@
 }
 
 .dashboard-alert-message {
-  color: #29485f;
+  color: #302b26;
 }
 
 @media (max-width: 600px) {
@@ -508,3 +508,13 @@
     gap: 4px;
   }
 }
+
+.dashboard-page { text-align:left; }
+.dashboard-content { width:min(100%,1100px); }
+.dashboard-card { border:1px solid #e8e3da; box-shadow:0 4px 18px rgba(38,38,38,.035); }
+.dashboard-card-header { border-left:4px solid #087608; }
+.dashboard-eyebrow { color:#087608; }
+.dashboard-nav button, .driver-catalog-link { border-radius:8px; }
+.dashboard-nav button:hover, .driver-catalog-link:hover { border-color:#087608; background:#edf5e9; }
+.dashboard-sponsor-item button { background:#087608; border-radius:8px; }
+.dashboard-sponsor-item button:hover:not(:disabled) { background:#055f06; }

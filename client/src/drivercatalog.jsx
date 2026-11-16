@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
@@ -18,6 +19,7 @@ function CatalogImage({ item }) {
 
 function DriverCatalog() {
   const navigate = useNavigate();
+  const formerSponsorId = new URLSearchParams(window.location.search).get('sponsorId');
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -92,7 +94,7 @@ function DriverCatalog() {
     const controller = new AbortController();
     async function loadCatalog() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/driver/catalog`, {
+        const response = await fetch(`${API_BASE_URL}/api/driver/catalog${formerSponsorId ? `?sponsorId=${encodeURIComponent(formerSponsorId)}` : ''}`, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
@@ -112,7 +114,7 @@ function DriverCatalog() {
     }
     loadCatalog();
     return () => controller.abort();
-  }, [navigate]);
+  }, [navigate, formerSponsorId]);
 
   return (
     <main className="dashboard-page driver-catalog">
@@ -121,6 +123,7 @@ function DriverCatalog() {
           <div>
             <p className="dashboard-eyebrow">Driver catalog</p>
             <h1 className="dashboard-greeting">{catalog ? `${catalog.companyName} rewards` : 'Rewards catalog'}</h1>
+            <p className="dashboard-section-description">Browse rewards available through your sponsor.</p>
           </div>
           <nav className="dashboard-nav" aria-label="Catalog navigation">
             <Link className="driver-catalog-nav-link" to="/driver-dashboard">Dashboard</Link>
@@ -131,7 +134,7 @@ function DriverCatalog() {
         <section className="dashboard-card" aria-labelledby="driver-catalog-heading">
           <header className="dashboard-card-header">
             <h2 id="driver-catalog-heading">Available rewards</h2>
-            <p className="dashboard-section-description">Items selected by your current sponsor.</p>
+            <p className="dashboard-section-description">Items selected by this sponsor.</p>
             {catalog && (
               <p className="dashboard-section-description">
                 {Number.isFinite(catalog.pointValue) && catalog.pointValue > 0
@@ -148,8 +151,8 @@ function DriverCatalog() {
           ) : catalog.items.length === 0 ? (
             <p className="dashboard-message">This sponsor has no available rewards yet. Check back later or choose another sponsor on your dashboard.</p>
           ) : (
-            <ul className="driver-catalog-list">
-              {catalog.items.map((item) => (
+            <SmartList items={catalog.items} label="rewards" options={[{key:'title',label:'Name',value:x=>x.title},{key:'points',label:'Points',type:'number',value:x=>x.pointCost}]}>{visibleItems => (<ul className="driver-catalog-list">
+              {visibleItems.map((item) => (
                 <li className="driver-catalog-item" key={item.id}>
                   <button type="button" className="driver-catalog-item-button"
                     aria-expanded={selectedId === item.id}
@@ -177,7 +180,7 @@ function DriverCatalog() {
                   </div>
                 </li>
               ))}
-            </ul>
+            </ul>)}</SmartList>
           )}
         </section>
         {!loading && !error && catalog?.items.length > 0 && (

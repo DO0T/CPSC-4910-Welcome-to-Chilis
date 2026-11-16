@@ -1,7 +1,9 @@
+import BrandMark from './BrandMark.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './welcome.css';
 import './Login.css';
+import cab from './assets/good-trucking-cab.jpg';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:5000' : 'http://52.23.134.146:5000');
@@ -80,11 +82,17 @@ function Login() {
       </div>
 
       <div className="login-shell">
-      <header className="login-topbar"><Link className="welcome-brand" to="/">Welcome to Chili's</Link><Link className="login-back" to="/">Back to home</Link></header>
+      <header className="login-topbar"><Link className="welcome-brand" to="/"><BrandMark /><span>Welcome to Chili's</span></Link><Link className="login-back" to="/">Back to home</Link></header>
+      <div className="login-layout">
+      <aside className="login-image-panel" aria-label="Good Trucking">
+        <img src={cab} alt="Bearded truck driver sitting in the cab of a red truck" />
+        <div className="login-image-caption"><span>GOOD TRUCKING</span><p>Good miles.<br />Good rewards.</p><small>Every safe trip deserves recognition.</small></div>
+      </aside>
       <section className="login-card" aria-labelledby="login-title">
         <div className="login-card-heading">
+        <p className="page-eyebrow"><span className="brand-inline"><BrandMark /> Welcome to Chili&apos;s</span></p>
         <h1 id="login-title">Welcome back</h1>
-        <p>Sign in to your account.</p>
+        <p className="page-subtitle">Sign in to your account.</p>
         </div>
 
         <div className="login-card-body">
@@ -134,6 +142,7 @@ function Login() {
         </p>
         </div>
       </section>
+      </div>
       </div>
     </main>
   );

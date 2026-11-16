@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "./password-pages.css";
 import { Link } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
@@ -38,9 +39,10 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div style={{ maxWidth: "420px", margin: "4rem auto", padding: "2rem", border: "1px solid #ccc", borderRadius: "8px" }}>
-      <h2>Forgot Password</h2>
-      <p>Enter your account email to receive a password reset link.</p>
+    <div className="password-page">
+      <p className="page-eyebrow">Account security</p>
+      <h1>Forgot password</h1>
+      <p className="page-subtitle">Enter your account email to receive a password reset link.</p>
       
       {message && <div style={{ color: "green", marginBottom: "1rem" }}>{message}</div>}
       {error && <div style={{ color: "red", marginBottom: "1rem" }}>{error}</div>}

@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import SmartTable from './SmartTable.jsx';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LogoutButton from './logoutbutton.jsx';
 import './admindashboard.css';
@@ -37,6 +38,16 @@ function AdminDashboard() {
 
   // Edit User modal/drawer state
   const [editingUser, setEditingUser] = useState(null);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const editDialogRef = useRef(null);
+  const createDialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = editingUser ? editDialogRef.current : creatingUser ? createDialogRef.current : null;
+    if (!dialog) return;
+    const trigger = document.activeElement;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); if (trigger?.isConnected) trigger.focus(); };
+  }, [editingUser, creatingUser]);
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -316,6 +327,7 @@ function AdminDashboard() {
       if (!response.ok) throw new Error(data.message || 'Failed to create user');
 
       setFeedback({ error: '', success: data.message });
+      setCreatingUser(false);
       setNewUserForm({
         name: '',
         email: '',
@@ -626,20 +638,6 @@ function AdminDashboard() {
             <button
               type="button"
               className="admin-btn-secondary"
-              onClick={() => handleQuickViewAsRole('Driver')}
-            >
-              View as Standard Driver
-            </button>
-            <button
-              type="button"
-              className="admin-btn-secondary"
-              onClick={() => handleQuickViewAsRole('Sponsor')}
-            >
-              View as Standard Sponsor
-            </button>
-            <button
-              type="button"
-              className="admin-btn-secondary"
               onClick={() => navigate('/editprofile')}
             >
               My Profile
@@ -684,55 +682,62 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Section Tabs */}
-        <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+        {/* Section navigation */}
+        <div className="admin-workspace">
+        <aside className="admin-sidebar">
+        <nav className="admin-tabs" aria-label="Admin sections">
+          <p className="admin-nav-label">MANAGE</p>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'users'}
+            aria-current={activeTab === 'users' ? 'page' : undefined}
             className={`admin-tab ${activeTab === 'users' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
-            Users, Roles &amp; Affiliations
+            Users &amp; roles
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'operations'}
+            aria-current={activeTab === 'operations' ? 'page' : undefined}
             className={`admin-tab ${activeTab === 'operations' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('operations')}
           >
-            Driver &amp; Sponsor Operations
+            Drivers &amp; sponsors
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'bulk'}
+            aria-current={activeTab === 'bulk' ? 'page' : undefined}
             className={`admin-tab ${activeTab === 'bulk' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('bulk')}
           >
-            Bulk Load (Pipe File)
+            Bulk import
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'audit'}
+            aria-current={activeTab === 'audit' ? 'page' : undefined}
             className={`admin-tab ${activeTab === 'audit' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            Audit Logs &amp; CSV Export
+            Audit logs
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'about'}
+            aria-current={activeTab === 'about' ? 'page' : undefined}
             className={`admin-tab ${activeTab === 'about' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('about')}
           >
-            Sprint / About Page
+            About page
           </button>
-        </div>
-
+        </nav>
+        <section className="admin-view-switcher" aria-labelledby="view-switcher-heading">
+          <p className="admin-nav-label" id="view-switcher-heading">PREVIEW EXPERIENCE</p>
+          <p>See the site from another user's perspective.</p>
+          <div className="admin-view-actions">
+            <button type="button" onClick={() => handleQuickViewAsRole('Driver')}>View as driver <span aria-hidden="true">↗</span></button>
+            <button type="button" onClick={() => handleQuickViewAsRole('Sponsor')}>View as sponsor <span aria-hidden="true">↗</span></button>
+          </div>
+        </section>
+        </aside>
+        <div className="admin-workspace-main">
         {loading ? (
           <p className="admin-loading" role="status">
             Loading control panel data…
@@ -751,6 +756,7 @@ function AdminDashboard() {
                       <h2 id="users-heading">All User Accounts</h2>
                     </div>
                     <div className="admin-filter-bar">
+                      <button type="button" className="admin-btn-primary" onClick={() => { clearFeedback(); setCreatingUser(true); }}>+ Create user</button>
                       <input
                         type="search"
                         placeholder="Search name, email, or organization…"
@@ -773,7 +779,7 @@ function AdminDashboard() {
                   </header>
 
                   <div className="admin-table-wrapper">
-                    <table className="admin-table">
+                    <SmartTable className="admin-table">
                       <thead>
                         <tr>
                           <th>User</th>
@@ -867,20 +873,18 @@ function AdminDashboard() {
                           ))
                         )}
                       </tbody>
-                    </table>
+                    </SmartTable>
                   </div>
                 </section>
 
                 {/* Edit User Drawer/Card */}
                 {editingUser && (
-                  <section
-                    className="admin-card admin-highlight-card"
-                    aria-labelledby="edit-user-heading"
-                  >
+                  <dialog ref={editDialogRef} className="admin-user-dialog" aria-labelledby="edit-user-heading" onCancel={(e) => { e.preventDefault(); setEditingUser(null); }}>
+                  <section className="admin-card admin-highlight-card">
                     <header className="admin-card-header">
                       <div>
                         <p className="admin-eyebrow">Editing account</p>
-                        <h2 id="edit-user-heading">
+                        <h2 id="edit-user-heading" tabIndex={-1}>
                           Update {editingUser.name} ({editingUser.email})
                         </h2>
                       </div>
@@ -893,6 +897,7 @@ function AdminDashboard() {
                       </button>
                     </header>
 
+                    {feedback.error && <p className="admin-dialog-error" role="alert">{feedback.error}</p>}
                     <form className="admin-form-grid" onSubmit={handleSaveUserEdit}>
                       <div className="admin-field">
                         <label htmlFor="edit-name">Full Name</label>
@@ -1029,13 +1034,12 @@ function AdminDashboard() {
                       </div>
                     </form>
                   </section>
+                  </dialog>
                 )}
 
-                {/* Create New User Card */}
-                <section
-                  className="admin-card"
-                  aria-labelledby="create-user-heading"
-                >
+                {/* Create New User Dialog */}
+                {creatingUser && <dialog ref={createDialogRef} className="admin-user-dialog" aria-labelledby="create-user-heading" onCancel={(e) => { e.preventDefault(); setCreatingUser(false); }}>
+                <section className="admin-card">
                   <header className="admin-card-header">
                     <div>
                       <p className="admin-eyebrow">Provisioning</p>
@@ -1043,8 +1047,10 @@ function AdminDashboard() {
                         Create New User (Driver, Sponsor, or Admin)
                       </h2>
                     </div>
+                    <button type="button" className="admin-btn-secondary" onClick={() => setCreatingUser(false)}>Cancel</button>
                   </header>
 
+                  {feedback.error && <p className="admin-dialog-error" role="alert">{feedback.error}</p>}
                   <form className="admin-form-grid" onSubmit={handleCreateUser}>
                     <div className="admin-field">
                       <label htmlFor="new-name">Full Name</label>
@@ -1167,6 +1173,7 @@ function AdminDashboard() {
                     </div>
                   </form>
                 </section>
+                </dialog>}
               </div>
             )}
 
@@ -1334,7 +1341,7 @@ function AdminDashboard() {
                   </form>
 
                   <div className="admin-table-wrapper" style={{ marginTop: '16px' }}>
-                    <table className="admin-table">
+                    <SmartTable className="admin-table">
                       <thead>
                         <tr>
                           <th>Driver</th>
@@ -1369,7 +1376,7 @@ function AdminDashboard() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </SmartTable>
                   </div>
                 </section>
 
@@ -1431,7 +1438,7 @@ function AdminDashboard() {
                   </form>
 
                   <div className="admin-table-wrapper" style={{ marginTop: '16px' }}>
-                    <table className="admin-table">
+                    <SmartTable className="admin-table">
                       <thead>
                         <tr>
                           <th>Company Name</th>
@@ -1452,7 +1459,7 @@ function AdminDashboard() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </SmartTable>
                   </div>
                 </section>
               </div>
@@ -1578,7 +1585,7 @@ function AdminDashboard() {
                         <h3 style={{ color: '#9e2525', fontSize: '16px', marginBottom: '8px' }}>
                           Line-by-Line Error &amp; Flagged Report ({bulkUploadResult.errors.length})
                         </h3>
-                        <table className="admin-table">
+                        <SmartTable className="admin-table">
                           <thead>
                             <tr>
                               <th>Line #</th>
@@ -1615,7 +1622,7 @@ function AdminDashboard() {
                               </tr>
                             ))}
                           </tbody>
-                        </table>
+                        </SmartTable>
                       </div>
                     )}
                   </div>
@@ -1717,7 +1724,7 @@ function AdminDashboard() {
                 </form>
 
                 <div className="admin-table-wrapper">
-                  <table className="admin-table">
+                  <SmartTable className="admin-table">
                     <thead>
                       <tr>
                         <th>Date &amp; Time</th>
@@ -1735,7 +1742,7 @@ function AdminDashboard() {
                       ) : (
                         auditLogs.map((log) => (
                           <tr key={log.log_id}>
-                            <td>{formatDateTime(log.event_date)}</td>
+                            <td data-sort-value={log.event_date}>{formatDateTime(log.event_date)}</td>
                             <td>
                               <strong>{log.event_category}</strong>
                             </td>
@@ -1746,7 +1753,7 @@ function AdminDashboard() {
                         ))
                       )}
                     </tbody>
-                  </table>
+                  </SmartTable>
                 </div>
               </section>
             )}
@@ -1854,7 +1861,7 @@ function AdminDashboard() {
                 </form>
 
                 <div className="admin-table-wrapper" style={{ marginTop: '16px' }}>
-                  <table className="admin-table">
+                  <SmartTable className="admin-table">
                     <thead>
                       <tr>
                         <th>Version</th>
@@ -1881,12 +1888,14 @@ function AdminDashboard() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </SmartTable>
                 </div>
               </section>
             )}
           </>
         )}
+        </div>
+        </div>
       </div>
     </main>
   );

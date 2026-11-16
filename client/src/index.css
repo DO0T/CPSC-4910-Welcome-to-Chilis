@@ -116,3 +116,8 @@ code {
   margin-top: 24px;    /* space above the links */
   justify-content: center; /* centers the links horizontally */
 }
+
+/* The application spans the viewport regardless of system dark mode. */
+:root { color-scheme:light; --bg:#fff; --text:#303030; --text-h:#303030; --border:#e5ded6; }
+body { background:#fff; }
+#root { width:100%; max-width:none; border:0; }

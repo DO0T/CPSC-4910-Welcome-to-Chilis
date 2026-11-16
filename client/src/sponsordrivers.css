@@ -2,7 +2,7 @@
   margin: 0 0 20px;
   padding: 14px 18px;
   border-radius: 12px;
-  background: #e8f1ed;
+  background: #f0e7da;
   color: #245c48;
   font-weight: 600;
   text-align: left;
@@ -24,10 +24,10 @@
 .sponsor-search {
   min-width: 220px;
   padding: 10px 14px;
-  border: 1px solid #c9dcd5;
+  border: 1px solid #d8cfc3;
   border-radius: 999px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
   font-size: 14px;
 }
@@ -52,7 +52,7 @@
 }
 
 .sponsor-form-field label {
-  color: #29485f;
+  color: #302b26;
   font-size: 14px;
   font-weight: 700;
 }
@@ -62,10 +62,10 @@
   box-sizing: border-box;
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #cbd9d7;
+  border: 1px solid #d8cfc3;
   border-radius: 8px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
   font-size: 14px;
 }
@@ -73,7 +73,7 @@
 .sponsor-form-field input:focus-visible,
 .sponsor-form-field select:focus-visible,
 .sponsor-search:focus-visible {
-  outline: 2px solid #55768d;
+  outline: 2px solid #706459;
   outline-offset: 2px;
 }
 
@@ -82,9 +82,9 @@
 }
 
 .sponsor-primary-button {
-  border: 1px solid #29485f;
+  border: 1px solid #302b26;
   border-radius: 999px;
-  background: #29485f;
+  background: #a83229;
   color: #fff;
   font: inherit;
   font-size: 14px;
@@ -115,7 +115,7 @@
 
 .sponsor-history-title {
   margin: 18px 0 8px;
-  color: #29485f;
+  color: #302b26;
   font-size: 15px;
 }
 

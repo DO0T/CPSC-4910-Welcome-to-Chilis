@@ -78,9 +78,10 @@ test('requires 30 days after a denial, then allows a new attempt', async () => {
   expect((await request(elapsed.app).post('/api/driver/applications').send({ sponsorId: 7 })).statusCode).toBe(201);
 });
 
-test('does not submit another application after approval', async () => {
-  const { app } = setup({ latest: { status: 'APPROVED' } });
-  expect((await request(app).post('/api/driver/applications').send({ sponsorId: 7 })).statusCode).toBe(409);
+test('allows a new application after approval when membership has ended', async () => {
+  const { app, connection } = setup({ latest: { status: 'APPROVED' } });
+  expect((await request(app).post('/api/driver/applications').send({ sponsorId: 7 })).statusCode).toBe(201);
+  expect(connection.query).toHaveBeenCalledWith('INSERT INTO DriverApplications (driver_id, sponsor_id) VALUES (?, ?)', [42, 7]);
 });
 
 test('lists sponsors with availability based on the logged-in driver', async () => {
@@ -92,6 +93,8 @@ test('lists sponsors with availability based on the logged-in driver', async () 
       { sponsor_id: 8, company_name: 'Waiting', status: 'PENDING', cooldown_complete: null },
       { sponsor_id: 9, company_name: 'Later', status: 'DENIED', cooldown_complete: 0 },
       { sponsor_id: 10, company_name: 'Ready', status: 'DENIED', cooldown_complete: 1 },
+      { sponsor_id: 11, company_name: 'Former', status: 'APPROVED', member_driver_id: null },
+      { sponsor_id: 12, company_name: 'Member', status: 'APPROVED', member_driver_id: 42 },
     ]]);
   const response = await request(app).get('/api/driver/applications/sponsors');
   expect(response.statusCode).toBe(200);
@@ -100,6 +103,8 @@ test('lists sponsors with availability based on the logged-in driver', async () 
     { availability: 'pending', canApply: false },
     { availability: 'cooldown', canApply: false },
     { availability: 'available', canApply: true },
+    { availability: 'available', canApply: true },
+    { availability: 'approved', canApply: false },
   ]);
   expect(pool.query.mock.calls[0][1]).toEqual([42]);
   expect(pool.query.mock.calls[1][1]).toEqual([42, 42]);

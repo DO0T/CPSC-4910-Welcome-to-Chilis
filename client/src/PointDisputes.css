@@ -8,17 +8,17 @@
 }
 
 .disputes-back {
-  border: 1px solid #cbd9d7;
+  border: 1px solid #d8cfc3;
   border-radius: 999px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   padding: 10px 18px;
   font-weight: 600;
   text-decoration: none;
 }
 
 .disputes-back:hover {
-  background: #e8f1ed;
+  background: #f0e7da;
 }
 
 .disputes-card {
@@ -27,7 +27,7 @@
 
 .disputes-card h2 {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
 }
 
 .disputes-card-body,
@@ -37,7 +37,7 @@ section.disputes-card:not(.dashboard-card):not(.admin-card) {
 
 section.disputes-card:not(.dashboard-card):not(.admin-card) {
   background: #fff;
-  border: 1px solid #e8efec;
+  border: 1px solid #eee6dc;
   border-radius: 18px;
 }
 
@@ -54,10 +54,10 @@ section.disputes-card:not(.dashboard-card):not(.admin-card) {
   width: 100%;
   margin-top: 0.4rem;
   padding: 0.7rem;
-  border: 1px solid #cbd9d7;
+  border: 1px solid #d8cfc3;
   border-radius: 8px;
   font: inherit;
-  color: #29485f;
+  color: #302b26;
   background: #fff;
 }
 
@@ -69,9 +69,9 @@ section.disputes-card:not(.dashboard-card):not(.admin-card) {
 .disputes-card button:not(.admin-btn-small) {
   cursor: pointer;
   padding: 10px 18px;
-  border: 1px solid #29485f;
+  border: 1px solid #302b26;
   border-radius: 999px;
-  background: #29485f;
+  background: #a83229;
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -92,8 +92,8 @@ section.disputes-card:not(.dashboard-card):not(.admin-card) {
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 700;
-  background: #e8f1ed;
-  color: #29485f;
+  background: #f0e7da;
+  color: #302b26;
 }
 
 .dispute-status-open {
@@ -120,7 +120,7 @@ section.disputes-card:not(.dashboard-card):not(.admin-card) {
 }
 
 .disputes-messages time {
-  color: #55768d;
+  color: #706459;
   font-size: 0.85rem;
 }
 

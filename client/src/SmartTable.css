@@ -1,0 +1,11 @@
+.smart-sort { display:inline-flex; align-items:center; gap:3px; border:0; padding:2px 0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.smart-sort:hover { color:#8b291f; }
+.smart-sort:focus-visible,.smart-list-footer button:focus-visible { outline:2px solid #087608; outline-offset:3px; }
+.smart-sr { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.smart-list-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 4px 4px; color:#706459; font-size:13px; }
+.smart-list-footer button { border:1px solid #d8cfc3; border-radius:8px; background:white; color:#8b291f; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
+.smart-list-footer button:hover { background:#f8f3ed; }
+.smart-list-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 20px; color:#655e56; font-size:13px; font-weight:700; }
+.smart-list-toolbar select { max-width:100%; padding:8px 10px; border:1px solid #d8cfc3; border-radius:8px; background:#fff; color:#302b26; font:inherit; }
+.smart-list-toolbar select:focus-visible { outline:2px solid #087608; outline-offset:3px; }
+.smart-list > .smart-list-footer { padding:16px 20px; }

@@ -23,3 +23,44 @@
 .welcome-card-footer span { color: #55768d; font-size: 14px; line-height: 1.5; }
 .welcome-page a:focus-visible, .login-page a:focus-visible, .login-page button:focus-visible, .login-page input:focus-visible { outline: 3px solid #55768d; outline-offset: 3px; }
 @media (max-width: 550px) { .welcome-topbar, .login-topbar { padding: 24px 0; } .welcome-card { margin-top: 25px; } .welcome-card-footer { grid-template-columns: 1fr; gap: 18px; } .welcome-nav { gap: 12px; } }
+
+
+/* Homepage theme; login styles above remain unchanged. */
+.welcome-page { background:#f8f5ee; color:#302b26; }
+.welcome-page .welcome-shell { width:min(100% - 48px, 1180px); }
+.welcome-page .welcome-topbar { padding:27px 0; }
+.welcome-page .welcome-brand { display:flex; align-items:center; gap:10px; color:#3e3029; font-size:16px; line-height:1.1; }
+.welcome-brand-mark { display:grid; place-items:center; width:38px; height:38px; border-radius:50%; background:#a83229; color:#fff8ed; font-size:20px; }
+.welcome-brand small { display:block; margin-top:5px; color:#81756a; font-size:9px; letter-spacing:.16em; }
+.welcome-page .welcome-nav a { color:#51463e; }
+.welcome-page .welcome-nav .welcome-nav-login { border-color:#d9cfc2; background:transparent; }
+.welcome-hero { display:grid; grid-template-columns:1fr 1.03fr; overflow:hidden; border-radius:18px; background:#f0e7da; }
+.welcome-copy { align-self:center; padding:clamp(35px,6vw,76px); }
+.welcome-page .welcome-kicker, .welcome-number { color:#9e392e; font-size:11px; font-weight:800; letter-spacing:.14em; }
+.welcome-hero h1 { margin:19px 0 0; color:#302b26; font-size:clamp(40px,5vw,66px); line-height:1.07; letter-spacing:-.045em; }
+.welcome-hero h1 em { color:#a83229; font-style:normal; }
+.welcome-page .welcome-intro { color:#65594e; font-size:17px; line-height:1.7; }
+.welcome-page .welcome-button { border-radius:8px; padding:14px 21px; }
+.welcome-page .welcome-button-primary { background:#a83229; color:white; gap:20px; }
+.welcome-page .welcome-button-primary:hover { background:#81271f; }
+.welcome-page .welcome-button-secondary { border-color:#cfc0b0; background:transparent; color:#40372f; }
+.welcome-image { position:relative; min-height:470px; }
+.welcome-image img { display:block; width:100%; height:100%; position:absolute; inset:0; object-fit:cover; }
+.welcome-image span { position:absolute; bottom:22px; left:24px; color:white; font-size:10px; font-weight:800; letter-spacing:.14em; text-shadow:0 1px 5px #000; }
+.welcome-for { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding:48px 4px; }
+.welcome-for > div + div { border-left:1px solid #e2d9cd; padding-left:40px; }
+.welcome-for h2 { margin:12px 0 8px; font-size:21px; color:#342d27; }
+.welcome-for p { margin:0; color:#706459; line-height:1.6; }
+.welcome-footer { border-top:1px solid #e2d9cd; padding:22px 0 32px; color:#807468; font-size:13px; }
+.welcome-footer span { padding:0 6px; color:#a83229; }
+.welcome-page a:focus-visible { outline:3px solid #a83229; outline-offset:3px; }
+@media(max-width:760px) { .welcome-hero { grid-template-columns:1fr; } .welcome-image { min-height:300px; } .welcome-for { grid-template-columns:1fr; gap:28px; } .welcome-for > div + div { border-left:0; border-top:1px solid #e2d9cd; padding:28px 0 0; } }
+@media(max-width:420px) { .welcome-page .welcome-shell { width:calc(100% - 32px); } .welcome-page .welcome-brand { font-size:14px; } .welcome-page .welcome-nav { gap:10px; } }
+
+.welcome-page .welcome-brand-mark { background:#087608; }
+.welcome-page .welcome-kicker, .welcome-number { color:#087608; }
+.welcome-page .welcome-button-secondary { border-color:#087608; color:#075f08; }
+.welcome-for > div:first-child { border-top:3px solid #087608; padding-top:20px; }
+.welcome-for > div + div { border-top:3px solid #b90000; padding-top:20px; }
+
+.welcome-image img { object-position: 32% center; }

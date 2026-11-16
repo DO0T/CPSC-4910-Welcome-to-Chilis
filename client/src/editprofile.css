@@ -2,8 +2,8 @@
   min-height: 100vh;
   box-sizing: border-box;
   padding: clamp(32px, 7vw, 88px) 20px;
-  color: #29485f;
-  background: #f2f7f5;
+  color: #302b26;
+  background: #f8f5ee;
   font-family: inherit;
 }
 
@@ -23,7 +23,7 @@
 
 .profile-eyebrow {
   margin: 0 0 10px;
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: .1em;
@@ -32,14 +32,14 @@
 
 .profile-title {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: clamp(28px, 4vw, 40px);
   line-height: 1.15;
 }
 
 .profile-intro {
   margin: 10px 0 0;
-  color: #55768d;
+  color: #706459;
 }
 
 .profile-nav {
@@ -51,10 +51,10 @@
 
 .profile-nav button,
 .dashboard-button {
-  border: 1px solid #e8efec;
+  border: 1px solid #eee6dc;
   border-radius: 999px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -65,14 +65,14 @@
 
 .profile-nav button:hover,
 .dashboard-button:hover {
-  background: #e8f1ed;
-  border-color: #55768d;
+  background: #f0e7da;
+  border-color: #706459;
 }
 
 .profile-nav button:focus-visible,
 .dashboard-button:focus-visible,
 .profile-form button:focus-visible {
-  outline: 2px solid #55768d;
+  outline: 2px solid #706459;
   outline-offset: 2px;
 }
 
@@ -89,7 +89,7 @@
 
 .profile-card-header {
   padding: 24px clamp(18px, 3vw, 32px);
-  background: #e8f1ed;
+  background: #f0e7da;
 }
 
 .profile-card-header .profile-eyebrow {
@@ -98,7 +98,7 @@
 
 .profile-card-header h2 {
   margin: 0;
-  color: #29485f;
+  color: #302b26;
   font-size: 22px;
 }
 
@@ -111,7 +111,7 @@
 
 .profile-card-body label {
   margin-top: 8px;
-  color: #55768d;
+  color: #706459;
   font-size: 14px;
   font-weight: 700;
 }
@@ -121,15 +121,15 @@
   width: min(100%, 520px);
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid #cbd9d7;
+  border: 1px solid #d8cfc3;
   border-radius: 8px;
   background: #fff;
-  color: #29485f;
+  color: #302b26;
   font: inherit;
 }
 
 .profile-card-body input:focus {
-  border-color: #55768d;
+  border-color: #706459;
   outline: 2px solid rgba(85, 118, 141, .2);
 }
 
@@ -143,20 +143,20 @@
 .profile-no-photo {
   display: grid;
   place-items: center;
-  background: #e8f1ed;
-  color: #55768d;
+  background: #f0e7da;
+  color: #706459;
   font-size: 13px;
 }
 
 .profile-card-body>p {
   margin: 0;
-  color: #55768d;
+  color: #706459;
 }
 
 .profile-card-body button {
   border: 0;
   background: transparent;
-  color: #55768d;
+  color: #706459;
   font: inherit;
   font-weight: 600;
   text-decoration: underline;
@@ -165,9 +165,9 @@
 
 .profile-save-button {
   justify-self: start;
-  border: 1px solid #29485f;
+  border: 1px solid #302b26;
   border-radius: 999px;
-  background: #29485f;
+  background: #a83229;
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -196,8 +196,8 @@
 }
 
 .profile-success {
-  background: #e8f1ed;
-  color: #29485f;
+  background: #f0e7da;
+  color: #302b26;
 }
 
 .profile-checkbox-label {
@@ -212,7 +212,7 @@
   width: 18px;
   min-height: 18px;
   padding: 0;
-  accent-color: #29485f;
+  accent-color: #302b26;
 }
 
 @media (max-width: 600px) {

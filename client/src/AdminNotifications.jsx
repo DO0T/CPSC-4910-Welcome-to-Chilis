@@ -1,3 +1,4 @@
+import SmartList from './SmartList.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminNotifications.css';
@@ -111,8 +112,11 @@ function AdminNotifications() {
         <button type="button" onClick={() => navigate('/admin-dashboard')}>
           ← Back to Admin Dashboard
         </button>
-        <h1>Login Page Notices</h1>
-        <p>Schedule a red banner to appear above the login form.</p>
+        <header className="site-notices-header">
+          <p className="page-eyebrow">System administration</p>
+          <h1>Login Page Notices</h1>
+          <p className="page-subtitle">Schedule a red banner to appear above the login form.</p>
+        </header>
 
         {error && <p className="site-notices-error" role="alert">{error}</p>}
         {feedback && <p className="site-notices-success" role="status">{feedback}</p>}
@@ -152,8 +156,8 @@ function AdminNotifications() {
         {notifications.length === 0 ? (
           <p>No notices scheduled.</p>
         ) : (
-          <ul className="site-notices-list">
-            {notifications.map((notice) => (
+          <SmartList items={notifications} label="notices" options={[{key:'message',label:'Message',value:x=>x.message},{key:'start',label:'Start date',type:'date',value:x=>x.startsAt},{key:'end',label:'End date',type:'date',value:x=>x.endsAt}]}>{visibleItems => (<ul className="site-notices-list">
+            {visibleItems.map((notice) => (
               <li key={notice.id}>
                 <p>{notice.message}</p>
                 <small>
@@ -165,7 +169,7 @@ function AdminNotifications() {
                 </button>
               </li>
             ))}
-          </ul>
+          </ul>)}</SmartList>
         )}
       </div>
     </main>

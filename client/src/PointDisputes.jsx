@@ -1,3 +1,4 @@
+import SmartTable from './SmartTable.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './driverdashboard.css';
@@ -247,7 +248,7 @@ export default function PointDisputes() {
             </div>
           </header>
           <div className="admin-table-wrapper">
-            <table className="admin-table">
+            <SmartTable className="admin-table">
               <thead>
                 <tr>
                   <th>Driver</th>
@@ -295,7 +296,7 @@ export default function PointDisputes() {
                           {d.status}
                         </span>
                       </td>
-                      <td>{new Date(d.updated_at).toLocaleDateString()}</td>
+                      <td data-sort-value={d.updated_at}>{new Date(d.updated_at).toLocaleDateString()}</td>
                       <td>
                         <button
                           type="button"
@@ -310,7 +311,7 @@ export default function PointDisputes() {
                   ))
                 )}
               </tbody>
-            </table>
+            </SmartTable>
           </div>
         </section>
         {current && (

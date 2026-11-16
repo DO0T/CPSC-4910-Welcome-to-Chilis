@@ -1,3 +1,4 @@
+import BrandMark from './BrandMark.jsx';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './signup.css';
@@ -73,7 +74,7 @@ function SignUp() {
     <main className="signup-page">
       <div className="signup-content">
         <header className="signup-heading">
-          <p className="signup-eyebrow">Welcome to Chili&apos;s</p>
+          <p className="signup-eyebrow"><span className="brand-inline"><BrandMark /> Welcome to Chili&apos;s</span></p>
           <h1 id="signup-title">Create your account</h1>
           <p>Choose how you&apos;ll use the platform, then enter your details.</p>
         </header>
