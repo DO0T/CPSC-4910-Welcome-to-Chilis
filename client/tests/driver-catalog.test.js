@@ -79,10 +79,11 @@ test('requires login before loading the catalog', async ({ page }) => {
 
 test('adds and removes rewards and checks out a cart as one purchase', async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
+  await page.route('https://example.com/phone.png', (route) => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>' }));
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/driver/catalog') return route.fulfill({ json: { sponsorId: 7, companyName: 'Acme', balance: 100, items: [
-      { id: 3, title: 'Phone stand', pointCost: 41 }, { id: 4, title: 'Travel mug', pointCost: 20 },
+      { id: 3, title: 'Phone stand', imageUrl: 'https://example.com/phone.png', pointCost: 41 }, { id: 4, title: 'Travel mug', pointCost: 20 },
     ] } });
     if (path === '/api/driver/catalog/checkout') return route.fulfill({ json: { balance: 39, purchaseIds: [23, 24] } });
     return route.fulfill({ json: { role: 'Driver' } });
@@ -90,11 +91,15 @@ test('adds and removes rewards and checks out a cart as one purchase', async ({ 
   await page.goto('http://localhost:5173/driver-catalog');
   await page.getByRole('button', { name: 'Add Phone stand to cart' }).click();
   await page.getByRole('button', { name: 'Add Travel mug to cart' }).click();
+  await page.getByRole('tab', { name: 'Cart 2' }).click();
   const cart = page.locator('.driver-cart');
   await expect(cart).toContainText('61 pts');
+  await expect(cart.locator('img')).toHaveAttribute('src', 'https://example.com/phone.png');
   await cart.getByRole('button', { name: 'Remove Travel mug from cart' }).click();
   await expect(cart).toContainText('41 pts');
+  await page.getByRole('tab', { name: 'Rewards' }).click();
   await page.getByRole('button', { name: 'Add Travel mug to cart' }).click();
+  await page.getByRole('tab', { name: 'Cart 2' }).click();
   await cart.getByRole('button', { name: 'Review cart checkout' }).click();
   const checkout = page.getByRole('dialog');
   await expect(checkout).toContainText('39 pts');

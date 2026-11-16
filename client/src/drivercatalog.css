@@ -19,6 +19,11 @@
 }
 
 .driver-catalog-nav-link:hover { background: #f0e7da; }
+.catalog-tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid #e7e4dc; }
+.catalog-tabs button { padding: 10px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #706459; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.catalog-tabs button[aria-selected="true"] { color: #8b291f; border-bottom-color: #a83229; }
+.catalog-tab-count { display: inline-block; min-width: 18px; margin-left: 3px; padding: 2px 5px; border-radius: 10px; background: #f4ede5; text-align: center; font-size: 12px; }
+.driver-catalog [role="tabpanel"][hidden] { display: none; }
 
 .driver-catalog-nav-link:focus-visible,
 .driver-catalog a:focus-visible,
@@ -95,6 +100,7 @@
 .cart-content { padding: 20px 24px 24px; }
 .cart-content ul { list-style: none; padding: 0; margin: 0; }
 .cart-content li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eeeae3; }
+.cart-content li .driver-catalog-image { width: 64px; height: 64px; flex: none; border-radius: 8px; }
 .cart-content li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .cart-content li strong { white-space: nowrap; }
 .cart-content li button { padding: 6px; border: 0; background: transparent; color: #8b291f; font: inherit; font-size: 13px; cursor: pointer; }

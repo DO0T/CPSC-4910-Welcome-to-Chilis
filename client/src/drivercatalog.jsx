@@ -30,7 +30,18 @@ function DriverCatalog() {
   const [receipt, setReceipt] = useState(null);
   const [cart, setCart] = useState([]);
   const [checkoutCart, setCheckoutCart] = useState(false);
+  const [activeTab, setActiveTab] = useState('rewards');
   const dialogRef = useRef(null);
+  const rewardsTabRef = useRef(null);
+  const cartTabRef = useRef(null);
+
+  function handleTabKey(event) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'rewards' : event.key === 'End' ? 'cart' : activeTab === 'rewards' ? 'cart' : 'rewards';
+    setActiveTab(next);
+    (next === 'rewards' ? rewardsTabRef : cartTabRef).current?.focus();
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -102,6 +113,7 @@ function DriverCatalog() {
     }
 
     setCart([]);
+    setActiveTab('rewards');
     setCatalog(null);
     setLoading(true);
     setError('');
@@ -147,7 +159,11 @@ function DriverCatalog() {
           </nav>
         </header>
 
-        <section className="dashboard-card" aria-labelledby="driver-catalog-heading">
+        {catalog && <div className="catalog-tabs" role="tablist" aria-label="Catalog views" onKeyDown={handleTabKey}>
+          <button ref={rewardsTabRef} type="button" role="tab" id="rewards-tab" aria-selected={activeTab === 'rewards'} aria-controls="rewards-panel" tabIndex={activeTab === 'rewards' ? 0 : -1} onClick={() => setActiveTab('rewards')}>Rewards</button>
+          <button ref={cartTabRef} type="button" role="tab" id="cart-tab" aria-selected={activeTab === 'cart'} aria-controls="cart-panel" tabIndex={activeTab === 'cart' ? 0 : -1} onClick={() => setActiveTab('cart')}>Cart <span className="catalog-tab-count">{cart.length}</span></button>
+        </div>}
+        <section className="dashboard-card" id="rewards-panel" role="tabpanel" aria-labelledby={catalog ? 'rewards-tab' : 'driver-catalog-heading'} hidden={activeTab !== 'rewards'}>
           <header className="dashboard-card-header">
             <h2 id="driver-catalog-heading">Available rewards</h2>
             <p className="dashboard-section-description">Items selected by this sponsor.</p>
@@ -202,17 +218,17 @@ function DriverCatalog() {
             </ul>)}</SmartList>
           )}
         </section>
-        {catalog && <section className="dashboard-card driver-cart" aria-labelledby="driver-cart-heading">
+        {catalog && <section className="dashboard-card driver-cart" id="cart-panel" role="tabpanel" aria-labelledby="cart-tab" hidden={activeTab !== 'cart'}>
           <header className="dashboard-card-header"><h2 id="driver-cart-heading">Your cart <span className="cart-count">({cart.length})</span></h2><p className="dashboard-section-description">Rewards from {catalog.companyName}. Your cart stays on this page while you shop.</p></header>
           {cart.length === 0 ? <p className="dashboard-message">Your cart is empty. Add a reward to get started.</p> : <div className="cart-content">
-            <ul>{cart.map((item) => <li key={item.id}><span>{item.title}</span><strong>{item.pointCost.toLocaleString()} pts</strong><button type="button" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.title} from cart`}>Remove</button></li>)}</ul>
+            <ul>{cart.map((item) => <li key={item.id}><CatalogImage item={item} /><span>{item.title}</span><strong>{item.pointCost.toLocaleString()} pts</strong><button type="button" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.title} from cart`}>Remove</button></li>)}</ul>
             <div className="cart-total"><span>Total</span><strong>{cart.reduce((sum, item) => sum + item.pointCost, 0).toLocaleString()} pts</strong></div>
             {cart.reduce((sum, item) => sum + item.pointCost, 0) > catalog.balance && <p className="cart-warning">Not enough points for all items with this sponsor.</p>}
             <button className="driver-catalog-purchase" type="button" disabled={cart.reduce((sum, item) => sum + item.pointCost, 0) > catalog.balance || cart.length > 50} onClick={() => openCheckout({ title: 'Your cart', pointCost: cart.reduce((sum, item) => sum + item.pointCost, 0), items: [...cart] }, true)}>Review cart checkout</button>
             {cart.length > 50 && <p className="cart-warning">A checkout can include up to 50 items.</p>}
           </div>}
         </section>}
-        {!loading && !error && catalog?.items.length > 0 && (
+        {activeTab === 'rewards' && !loading && !error && catalog?.items.length > 0 && (
           <p className="driver-catalog-note">Listings come from your sponsor’s saved catalog. Availability may change.</p>
         )}
         <dialog className="catalog-checkout" ref={dialogRef} aria-labelledby="checkout-title" onCancel={(event) => { event.preventDefault(); closeCheckout(); }} onClose={() => { if (!purchasing) { setCheckoutItem(null); setPurchaseError(''); setReceipt(null); } }}>
