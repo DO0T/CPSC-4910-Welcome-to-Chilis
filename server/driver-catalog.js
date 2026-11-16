@@ -148,10 +148,14 @@ function createDriverCatalogRouter(pool) {
     }
   });
 
-  router.post('/purchase', async (req, res) => {
+  async function checkout(req, res, cartMode) {
     if (req.userRole !== 'Driver') return res.status(403).json({ message: 'Driver access required' });
     const { itemId, sponsorId, pointCost: expectedCost } = req.body || {};
-    if (![itemId, sponsorId, expectedCost].every((value) => Number.isSafeInteger(value) && value > 0)) {
+    const requestedItems = cartMode ? req.body?.items : [{ itemId, pointCost: expectedCost }];
+    if (!Number.isSafeInteger(sponsorId) || sponsorId <= 0 || !Array.isArray(requestedItems) ||
+        requestedItems.length < 1 || requestedItems.length > 50 ||
+        requestedItems.some((item) => !item || ![item.itemId, item.pointCost].every((value) => Number.isSafeInteger(value) && value > 0)) ||
+        new Set(requestedItems.map((item) => item.itemId)).size !== requestedItems.length) {
       return res.status(400).json({ message: 'Invalid purchase request.' });
     }
 
@@ -172,45 +176,58 @@ function createDriverCatalogRouter(pool) {
         await connection.rollback();
         return res.status(409).json({ message: 'Your active sponsor changed. Reload the catalog before purchasing.' });
       }
-      const [items] = await connection.query(
+      const validatedItems = [];
+      for (const requested of [...requestedItems].sort((a, b) => a.itemId - b.itemId)) {
+        const [items] = await connection.query(
         `SELECT i.title, i.image_url, i.ebay_price, i.price_override, s.point_value, s.company_name
          FROM SponsorCatalogItems i JOIN Sponsors s ON s.sponsor_id = i.sponsor_id
          WHERE (EXISTS (SELECT 1 FROM DriverSponsorships ds WHERE ds.sponsor_id = i.sponsor_id AND ds.driver_id = ?) OR EXISTS (SELECT 1 FROM DriverPostRemovalAccess a WHERE a.sponsor_id = i.sponsor_id AND a.driver_id = ? AND a.expires_at > NOW())) AND i.id = ? AND i.sponsor_id = ? AND i.active = 1 AND i.is_available = 1
            AND i.family_friendly_confirmed = 1 AND i.currency = 'USD' FOR UPDATE`,
-        [req.userId, req.userId, itemId, sponsorId]
+        [req.userId, req.userId, requested.itemId, sponsorId]
       );
-      if (!items.length) {
-        await connection.rollback();
-        return res.status(409).json({ message: 'This reward is no longer available. Reload the catalog.' });
+        if (!items.length) {
+          await connection.rollback();
+          return res.status(409).json({ message: 'This reward is no longer available. Reload the catalog.' });
+        }
+        const item = items[0];
+        const cost = pointCost(item.price_override == null ? item.ebay_price : item.price_override, item.point_value);
+        if (!cost || cost !== requested.pointCost) {
+          await connection.rollback();
+          return res.status(409).json({ message: 'The reward price has changed or is unavailable. Reload the catalog.' });
+        }
+        validatedItems.push({ ...item, itemId: requested.itemId, cost });
       }
-      const item = items[0];
-      const cost = pointCost(item.price_override == null ? item.ebay_price : item.price_override, item.point_value);
-      if (!cost || cost !== expectedCost) {
+      const totalCost = validatedItems.reduce((total, item) => total + item.cost, 0);
+      if (!Number.isSafeInteger(totalCost) || totalCost > 2147483647) {
         await connection.rollback();
-        return res.status(409).json({ message: 'The reward price has changed or is unavailable. Reload the catalog.' });
+        return res.status(400).json({ message: 'The total point cost is too large.' });
       }
       const [balances] = await connection.query(
         'SELECT COALESCE(SUM(point_change), 0) AS balance FROM DriverPoints WHERE driver_id = ? AND sponsor_id = ?',
         [req.userId, sponsorId]
       );
       const balance = Number(balances[0].balance);
-      if (balance < cost) {
+      if (balance < totalCost) {
         await connection.rollback();
         return res.status(409).json({ message: 'You do not have enough points with this sponsor.' });
       }
-      await connection.query('UPDATE Drivers SET total_points = COALESCE(total_points, 0) - ? WHERE user_id = ?', [cost, req.userId]);
-      const [pointTransaction] = await connection.query(
-        'INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, ?, ?)',
-        [req.userId, sponsorId, -cost, `Simulated purchase: ${item.title}`.slice(0, 255)]
-      );
-      const [purchase] = await connection.query(
-        `INSERT INTO DriverPurchases
-         (driver_id, sponsor_id, catalog_item_id, point_transaction_id, sponsor_name, item_title, item_image_url, points_spent)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [req.userId, sponsorId, itemId, pointTransaction.insertId, item.company_name, item.title, item.image_url || null, cost]
-      );
+      await connection.query('UPDATE Drivers SET total_points = COALESCE(total_points, 0) - ? WHERE user_id = ?', [totalCost, req.userId]);
+      const purchaseIds = [];
+      for (const item of validatedItems) {
+        const [pointTransaction] = await connection.query(
+          'INSERT INTO DriverPoints (driver_id, sponsor_id, point_change, reason) VALUES (?, ?, ?, ?)',
+          [req.userId, sponsorId, -item.cost, `Simulated purchase: ${item.title}`.slice(0, 255)]
+        );
+        const [purchase] = await connection.query(
+          `INSERT INTO DriverPurchases
+           (driver_id, sponsor_id, catalog_item_id, point_transaction_id, sponsor_name, item_title, item_image_url, points_spent)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [req.userId, sponsorId, item.itemId, pointTransaction.insertId, item.company_name, item.title, item.image_url || null, item.cost]
+        );
+        purchaseIds.push(purchase.insertId);
+      }
       await connection.commit();
-      return res.json({ message: 'Simulated purchase complete. No real order was placed.', balance: balance - cost, purchaseId: purchase.insertId });
+      return res.json({ message: 'Simulated purchase complete. No real order was placed.', balance: balance - totalCost, ...(cartMode ? { purchaseIds } : { purchaseId: purchaseIds[0] }) });
     } catch (error) {
       if (connection) await connection.rollback();
       console.error('Simulated purchase error:', error);
@@ -219,7 +236,9 @@ function createDriverCatalogRouter(pool) {
     } finally {
       if (connection) connection.release();
     }
-  });
+  }
+  router.post('/purchase', (req, res) => checkout(req, res, false));
+  router.post('/checkout', (req, res) => checkout(req, res, true));
 
   return router;
 }

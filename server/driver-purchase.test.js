@@ -145,3 +145,64 @@ test('does not allow sponsors to cancel a driver purchase', async () => {
   expect((await request(app).post('/catalog/purchases/23/cancel')).statusCode).toBe(403);
   expect(pool.getConnection).not.toHaveBeenCalled();
 });
+
+function cartSetup({ balance = 100, unavailableId = null, failSecondRecord = false, activeSponsor = 7 } = {}) {
+  let records = 0;
+  const connection = { beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn(), query: jest.fn(async (sql, params) => {
+    if (sql.startsWith('SELECT sponsor_id FROM Drivers')) return [[{ sponsor_id: activeSponsor }]];
+    if (sql.startsWith('SELECT 1 FROM DriverPostRemovalAccess')) return [[]];
+    if (sql.includes('FROM SponsorCatalogItems')) {
+      if (params[2] === unavailableId) return [[]];
+      return [[{ title: `Reward ${params[2]}`, company_name: 'Acme', image_url: null, ebay_price: params[2] === 3 ? '10.00' : '5.00', price_override: null, point_value: '0.25' }]];
+    }
+    if (sql.startsWith('SELECT COALESCE')) return [[{ balance }]];
+    if (sql.startsWith('INSERT INTO DriverPoints')) return [{ insertId: 80 + records }];
+    if (sql.includes('INSERT INTO DriverPurchases')) {
+      records += 1;
+      if (failSecondRecord && records === 2) throw new Error('record failed');
+      return [{ insertId: 22 + records }];
+    }
+    return [{}];
+  }) };
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => { req.userId = 42; req.userRole = 'Driver'; next(); });
+  app.use('/catalog', createDriverCatalogRouter({ getConnection: async () => connection }));
+  return { app, connection };
+}
+
+const cartItems = [{ itemId: 3, pointCost: 40 }, { itemId: 4, pointCost: 20 }];
+test('purchases a cart atomically and records each sponsor-specific deduction', async () => {
+  const { app, connection } = cartSetup();
+  const response = await request(app).post('/catalog/checkout').send({ sponsorId: 7, items: cartItems });
+  expect(response.statusCode).toBe(200);
+  expect(response.body).toMatchObject({ balance: 40, purchaseIds: [23, 24] });
+  expect(connection.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE Drivers'))[1]).toEqual([60, 42]);
+  const ledger = connection.query.mock.calls.filter(([sql]) => sql.startsWith('INSERT INTO DriverPoints'));
+  expect(ledger.map(([, params]) => params.slice(0, 3))).toEqual([[42, 7, -40], [42, 7, -20]]);
+  expect(connection.commit).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['combined balance is insufficient', { balance: 59 }, cartItems],
+  ['an item is unavailable', { unavailableId: 4 }, cartItems],
+  ['an item price changed', {}, [cartItems[0], { itemId: 4, pointCost: 19 }]],
+  ['the active sponsor changed', { activeSponsor: 8 }, cartItems],
+])('rejects cart when %s without purchases', async (_name, options, items) => {
+  const { app, connection } = cartSetup(options);
+  expect((await request(app).post('/catalog/checkout').send({ sponsorId: 7, items })).statusCode).toBe(409);
+  expect(connection.rollback).toHaveBeenCalled();
+  expect(connection.query.mock.calls.some(([sql]) => sql.startsWith('INSERT INTO DriverPoints'))).toBe(false);
+});
+
+test('rejects duplicate cart items and rolls back if a record fails', async () => {
+  const invalid = cartSetup();
+  expect((await request(invalid.app).post('/catalog/checkout').send({ sponsorId: 7, items: [cartItems[0], cartItems[0]] })).statusCode).toBe(400);
+  const failed = cartSetup({ failSecondRecord: true });
+  const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    expect((await request(failed.app).post('/catalog/checkout').send({ sponsorId: 7, items: cartItems })).statusCode).toBe(500);
+    expect(failed.connection.rollback).toHaveBeenCalled();
+    expect(failed.connection.commit).not.toHaveBeenCalled();
+  } finally { spy.mockRestore(); }
+});

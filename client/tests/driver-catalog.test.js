@@ -76,3 +76,32 @@ test('requires login before loading the catalog', async ({ page }) => {
   await page.goto('http://localhost:5173/driver-catalog');
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test('adds and removes rewards and checks out a cart as one purchase', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('authToken', 'test-token'));
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/driver/catalog') return route.fulfill({ json: { sponsorId: 7, companyName: 'Acme', balance: 100, items: [
+      { id: 3, title: 'Phone stand', pointCost: 41 }, { id: 4, title: 'Travel mug', pointCost: 20 },
+    ] } });
+    if (path === '/api/driver/catalog/checkout') return route.fulfill({ json: { balance: 39, purchaseIds: [23, 24] } });
+    return route.fulfill({ json: { role: 'Driver' } });
+  });
+  await page.goto('http://localhost:5173/driver-catalog');
+  await page.getByRole('button', { name: 'Add Phone stand to cart' }).click();
+  await page.getByRole('button', { name: 'Add Travel mug to cart' }).click();
+  const cart = page.locator('.driver-cart');
+  await expect(cart).toContainText('61 pts');
+  await cart.getByRole('button', { name: 'Remove Travel mug from cart' }).click();
+  await expect(cart).toContainText('41 pts');
+  await page.getByRole('button', { name: 'Add Travel mug to cart' }).click();
+  await cart.getByRole('button', { name: 'Review cart checkout' }).click();
+  const checkout = page.getByRole('dialog');
+  await expect(checkout).toContainText('39 pts');
+  const posted = page.waitForRequest((req) => req.url().endsWith('/api/driver/catalog/checkout') && req.method() === 'POST');
+  await checkout.getByRole('button', { name: 'Complete purchase' }).click();
+  expect((await posted).postDataJSON()).toEqual({ sponsorId: 7, items: [{ itemId: 3, pointCost: 41 }, { itemId: 4, pointCost: 20 }] });
+  await expect(checkout.getByText('Purchase complete')).toBeVisible();
+  await checkout.getByRole('button', { name: 'Continue shopping' }).click();
+  await expect(cart).toContainText('Your cart is empty');
+});

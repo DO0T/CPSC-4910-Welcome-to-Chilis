@@ -59,6 +59,9 @@
 .driver-catalog-details p { margin: 0 0 8px; }
 .driver-catalog-details a { color: #245c48; }
 .driver-catalog-actions { grid-column: 2; grid-row: 1; padding: 20px clamp(18px, 3vw, 32px) 20px 0; text-align: right; }
+.driver-catalog-add { min-height: 38px; margin-right: 8px; padding: 8px 12px; border: 1px solid #d8cfc3; background: #fff; color: #8b291f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.driver-catalog-add:disabled { opacity: .55; cursor: not-allowed; }
+.driver-catalog-add:hover:not(:disabled) { background: #f8f3ed; }
 .driver-catalog-actions p { margin: 8px 0 0; color: #706459; font-size: 14px; }
 .driver-catalog-purchase { min-height: 38px; padding: 8px 14px; border: 0; border-radius: 999px; background: #245c48; color: white; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .driver-catalog-purchase:disabled { opacity: .5; cursor: not-allowed; }
@@ -88,6 +91,19 @@
 .checkout-secondary { background: #fff; color: #245c48; }
 .checkout-primary:disabled, .checkout-secondary:disabled, .checkout-close:disabled { opacity: .5; cursor: not-allowed; }
 .catalog-checkout button:focus-visible { outline: 2px solid #706459; outline-offset: 3px; }
+.cart-count { color: #706459; font-size: 15px; }
+.cart-content { padding: 20px 24px 24px; }
+.cart-content ul { list-style: none; padding: 0; margin: 0; }
+.cart-content li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eeeae3; }
+.cart-content li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cart-content li strong { white-space: nowrap; }
+.cart-content li button { padding: 6px; border: 0; background: transparent; color: #8b291f; font: inherit; font-size: 13px; cursor: pointer; }
+.cart-total { display: flex; justify-content: space-between; gap: 16px; margin: 18px 0; }
+.cart-warning { color: #8a3030; font-size: 14px; }
+.checkout-cart-items { margin: 24px 0; }
+.checkout-cart-items div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; }
+.checkout-cart-items span { overflow-wrap: anywhere; }
+.checkout-cart-items strong { white-space: nowrap; }
 
 .driver-catalog-image {
   width: 112px;
@@ -138,6 +154,7 @@
 
   .driver-catalog-item { grid-template-columns: minmax(0, 1fr); }
   .driver-catalog-actions { grid-column: 1; grid-row: 2; padding: 0 18px 18px 120px; text-align: left; }
+  .driver-catalog-add { margin: 0 8px 8px 0; }
   .driver-catalog-details { grid-row: 3; }
 
   .driver-catalog-image {
