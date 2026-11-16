@@ -89,7 +89,7 @@ test.describe.serial('Application testing', () => {
         await page.getByLabel('Password').pressSequentially('password');
         await page.getByRole('button', {name: 'log in'}).click();
         let appSection = await page.locator('.dashboard-card').filter({has: page.getByRole('heading', {name: 'Apply to a sponsor'})});
-        if(browserName == 'webkit'){
+        if(appSection.getByRole('button', {name: 'Show more'}).isEnabled()){
             await appSection.getByRole('button', {name: 'Show more'}).click()
         }
         let sponsor = await appSection.locator('.dashboard-sponsor-item').filter({has: page.getByRole('heading', {name: denyorg})});
