@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './AlertSystem.css';
 
@@ -16,23 +16,37 @@ function AlertSystem() {
   const [error, setError] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [warningSeconds, setWarningSeconds] = useState(null);
+  const requestVersion = useRef(0);
   const token = sessionStorage.getItem('authToken');
   const showAlerts = Boolean(token) && DASHBOARD_PATHS.has(location.pathname);
   const monitorIdle = Boolean(token) && !AUTH_PATHS.has(location.pathname);
 
-  const loadAlerts = useCallback(async () => {
+  const loadAlerts = useCallback(async (markViewed = false) => {
     const authToken = sessionStorage.getItem('authToken');
     if (!authToken) return;
+    const requestId = ++requestVersion.current;
     try {
       const response = await fetch(API_BASE_URL + '/api/alerts', {
         headers: { Authorization: 'Bearer ' + authToken },
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Unable to load alerts.');
-      setAlerts(Array.isArray(body) ? body : []);
+      const loaded = Array.isArray(body) ? body : [];
+      const unseenIds = loaded.filter((alert) => !Number(alert.is_viewed)).map((alert) => alert.id);
+      if (markViewed && unseenIds.length) {
+        for (let offset = 0; offset < unseenIds.length; offset += 1000) {
+          const markResponse = await fetch(API_BASE_URL + '/api/alerts/viewed', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: unseenIds.slice(offset, offset + 1000) }),
+          });
+          if (!markResponse.ok) throw new Error('Unable to mark alerts as viewed.');
+        }
+      }
+      if (requestId !== requestVersion.current || sessionStorage.getItem('authToken') !== authToken) return;
+      setAlerts(markViewed ? loaded.map((alert) => ({ ...alert, is_viewed: 1 })) : loaded);
       setError('');
     } catch (err) {
-      setError(err.message || 'Unable to load alerts.');
+      if (requestId === requestVersion.current) setError(err.message || 'Unable to load alerts.');
     }
   }, []);
 
@@ -41,8 +55,10 @@ function AlertSystem() {
       setIsOpen(false);
       return;
     }
-    loadAlerts();
-  }, [showAlerts, location.pathname, loadAlerts]);
+    loadAlerts(isOpen);
+    const interval = window.setInterval(() => loadAlerts(isOpen), 30000);
+    return () => { window.clearInterval(interval); requestVersion.current += 1; };
+  }, [showAlerts, location.pathname, loadAlerts, isOpen]);
 
   useEffect(() => {
     if (!monitorIdle) {
@@ -118,10 +134,9 @@ function AlertSystem() {
             onClick={() => {
               const opening = !isOpen;
               setIsOpen(opening);
-              if (opening) loadAlerts();
             }}
           >
-            Alerts {alerts.length > 0 && <span className="alert-center-count">{alerts.length}</span>}
+            Alerts {alerts.filter((alert) => !Number(alert.is_viewed)).length > 0 && <span className="alert-center-count">{alerts.filter((alert) => !Number(alert.is_viewed)).length}</span>}
           </button>
           {isOpen && (
             <section id="alert-center-panel" className="alert-center-panel" aria-label="Alert history">
