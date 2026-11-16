@@ -10,7 +10,7 @@ async function contacts(db, userId, role) {
   let condition, args;
   if (role === 'Admin') { condition = "u.role IN ('Driver', 'Sponsor')"; args = [userId]; }
   else if (role === 'Sponsor') { condition = `u.role = 'Driver' AND ${membership('u.user_id', '?')}`; args = [userId, userId]; }
-  else { condition = `u.role = 'Sponsor' AND ${membership('?', 'u.user_id')}`; args = [userId, userId]; }
+  else { condition = `u.role = 'Sponsor' AND ${membership('?', 'u.user_id')}`; args = [userId, userId, userId]; }
   const [rows] = await db.query(`SELECT u.user_id, u.name, u.username, u.role, s.company_name
     FROM Users u LEFT JOIN SponsorUsers su ON su.user_id = u.user_id
     LEFT JOIN Sponsors s ON s.sponsor_id = su.sponsor_id

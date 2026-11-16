@@ -107,5 +107,6 @@ test('driver contact list is restricted to linked sponsor accounts', async () =>
   await request(appFor('Driver', pool)).get('/messages/contacts');
   expect(pool.query.mock.calls[0][0]).toContain("u.role = 'Sponsor'");
   expect(pool.query.mock.calls[0][0]).toContain('DriverSponsorships');
-  expect(pool.query.mock.calls[0][1]).toEqual([12, 12]);
+  expect(pool.query.mock.calls[0][1]).toEqual([12, 12, 12]);
+  expect((pool.query.mock.calls[0][0].match(/\?/g) || []).length).toBe(pool.query.mock.calls[0][1].length);
 });
