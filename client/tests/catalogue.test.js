@@ -96,6 +96,15 @@ test.describe.serial('Sponsor Catalogue tests.', () => {
         await dialog.accept()});
         await item.getByRole('button', {name: 'Remove'}).click();
         await expect(page.locator('.catalog-item')).toHaveCount(1);
+        await page.locator('#catalog-query').fill('iPhone X');
+        await page.getByRole('button', {name: 'Search'}).click();
+        await expect(page.locator('.catalog-results')).toBeVisible();
+        let product = page.locator('.catalog-result').filter({has: page.getByRole('heading',{name: 'iPhone X'})});
+        await product.getByRole('button', {name: 'Choose item'}).click();
+        await product.getByRole('checkbox').check();
+        await expect(product.getByRole('checkbox')).toBeChecked();
+        await product.getByRole('button', {name : 'Add to catalog'}).click();
+        await expect(page.locator('.catalog-item')).toHaveCount(2);
     });
 
     test('check and change item price', async ({ page, browserName }) => {
@@ -245,5 +254,97 @@ test.describe.serial('Sponsor Catalogue tests.', () => {
         await expect(checkout.getByRole('button', { name: 'Complete Purchase' })).toBeVisible();
         await checkout.getByRole('button', { name: 'Complete Purchase' }).click();
         await expect(checkout.getByText('Enjoy your reward')).toBeVisible();
+    }); 
+    test('Put Multiple items in cart', async ({ page, browserName }) => {
+        const emaildriver = `Catadriver-${browserName}@test.example`;
+        const emailsponsor = `janesponsor-${browserName}@test.example`;
+        await page.goto('http://localhost:5173/login');
+        await page.getByLabel('Email').fill(emaildriver);
+        await page.getByLabel('Password').pressSequentially('password');
+        await page.getByRole('button', {name: 'Log in'}).click();
+        await page.get('button', {name: 'View catalog'}).click();
+        let item = page.getByRole('button',{name: '/Samsung Galaxy S10/'})
+        await page.getByRole('button',{name: 'Add Samsung Galaxy S10 to cart'}).click();
+        item = page.getByRole('button',{name: '/iPhone X/'})
+        await page.getByRole('button',{name: 'Add iPhone X to cart'}).click();
+        await page.getByRole('tab', { name: /Cart/ }).click();
+        const cart = page.locator('#cart-panel');
+        await expect(page.locator('#cart-tab .catalog-tab-count')).toHaveText('2');
+        await expect(cart).toContainText('iPhone X')
+        await expect(cart).toContainText('Samsung Galaxy S10')
+    }); 
+    test('Multiple items in cart without points', async ({ page, browserName }) => {
+        const emaildriver = `Catadriver-${browserName}@test.example`;
+        const emailsponsor = `janesponsor-${browserName}@test.example`;
+        await page.goto('http://localhost:5173/login');
+        await page.getByLabel('Email').fill(emaildriver);
+        await page.getByLabel('Password').pressSequentially('password');
+        await page.getByRole('button', {name: 'Log in'}).click();
+        await page.get('button', {name: 'View catalog'}).click();
+        let item = page.getByRole('button',{name: '/Samsung Galaxy S10/'})
+        let item2 =  page.getByRole('button',{name: '/iPhone X/'})
+        await page.getByRole('tab', { name: /Cart/ }).click();
+        const cart = page.locator('#cart-panel');
+        await expect(page.getByRole('button', { name: 'Review cart checkout' })).toBeDisabled();
+        await expect(cart.getByText('Not enough points for all items with this sponsor.')).toBeVisible();
+    }); 
+    test('Remove 1 item from the cart', async ({ page, browserName }) => {
+        const emaildriver = `Catadriver-${browserName}@test.example`;
+        const emailsponsor = `janesponsor-${browserName}@test.example`;
+        await page.goto('http://localhost:5173/login');
+        await page.getByLabel('Email').fill(emaildriver);
+        await page.getByLabel('Password').pressSequentially('password');
+        await page.getByRole('button', {name: 'Log in'}).click();
+        await page.get('button', {name: 'View catalog'}).click();
+        await page.getByRole('tab', { name: /Cart/ }).click();
+        const cart = page.locator('#cart-panel');
+        await expect(page.locator('#cart-tab .catalog-tab-count')).toHaveText('2');
+        await expect(cart).toContainText('iPhone X')
+        await expect(cart).toContainText('Samsung Galaxy S10')
+        await cart.getByRole('button', {name: 'Remove iPhone X from cart'}).click();
+        await expect(page.locator('#cart-tab .catalog-tab-count')).toHaveText('1');
+        await expect(cart).not.toContainText('iPhone X')
+        await expect(cart).toContainText('Samsung Galaxy S10')
+    });
+    test('Enough points for one but not both items', async ({ page, browserName }) => {
+        const emaildriver = `Catadriver-${browserName}@test.example`;
+        const emailsponsor = `janesponsor-${browserName}@test.example`;
+        await page.goto('http://localhost:5173/login');
+        await page.getByLabel('Email').fill(emailsponsor);
+        await page.getByLabel('Password').pressSequentially('password');
+        await page.getByRole('button', {name: 'Log in'}).click();
+        await page.getByRole('button', {name: 'Drivers & points'}).click();
+        let sponsorDrivers = page.locator('section[aria-labelledby="drivers-heading"]');
+        let driver = sponsorDrivers.locator('li.sponsor-list-item').filter({hasText: 'Cata'});
+        await driver.getByRole('button', {name: 'Change points'}).click();
+        let popup = page.locator('dialog.sponsor-action-dialog');
+        await popup.locator('#points-direction').selectOption('Add');
+        await popup.locator('#points-amount').fill('70000');
+        await popup.locator('#points-reason').fill('Purchase Testing');
+        await popup.getByRole('button', {name: 'Add points'}).click();
+        await page.goto('http://localhost:5173/login');
+        await page.getByLabel('Email').fill(emaildriver);
+        await page.getByLabel('Password').pressSequentially('password');
+        await page.getByRole('button', {name: 'Log in'}).click();
+        await page.get('button', {name: 'View catalog'}).click();
+        let item = page.getByRole('button',{name: '/Samsung Galaxy S10/'})
+        let item2 =  page.getByRole('button',{name: '/iPhone X/'})
+        await page.getByRole('tab', { name: /Cart/ }).click();
+        const cart = page.locator('#cart-panel');
+        await expect(cart.getByText('Samsung Galaxy S10')).toBeVisible();
+        await expect(cart.getByText('59,999 pts')).toBeVisible();
+        await expect(cart.locator('.cart-total')).toContainText('Total');
+        await expect(cart.locator('.cart-total strong')).toHaveText('59,999');
+        await page.getByRole('button', { name: 'Review cart checkout' }).click();
+        const checkout = page.getByRole('dialog');
+        await expect(checkout).toBeVisible();
+        await expect(checkout.getByText('This is a simulated purchase. Points are deducted, but no real order is placed or shipped.')).toBeVisible();
+        await expect(checkout.getByRole('button', { name: 'Complete Purchase' })).toBeVisible();
+        await checkout.getByRole('button', { name: 'Keep Shopping' }).click();
+        await page.getByRole('tab', { name: /Catalog/ }).click();
+        await page.getByRole('button',{name: 'Add iPhone X to cart'}).click();
+        await page.getByRole('tab', { name: /Cart/ }).click();
+        await expect(page.getByRole('button', { name: 'Review cart checkout' })).toBeDisabled();
+        await expect(cart.getByText('Not enough points for all items with this sponsor.')).toBeVisible();
     }); 
 });
